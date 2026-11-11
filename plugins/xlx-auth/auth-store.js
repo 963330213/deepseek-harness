@@ -1,5 +1,6 @@
 /** Own local credentials, role grants and gateway login sessions in an independent SQLite database. */
 import { randomBytes, scrypt, timingSafeEqual, createHash } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
 import { DatabaseSync } from 'node:sqlite'
 import { promisify } from 'node:util'
 
@@ -123,6 +124,7 @@ export async function openAuthStore(config) {
     })
     if (!db.prepare('SELECT 1 FROM users LIMIT 1').get()) {
       const password = process.env.DSH_XLX_BOOTSTRAP_PASSWORD
+        ?? (config.bootstrapPasswordFile ? (await readFile(config.bootstrapPasswordFile, 'utf8')).trim() : undefined)
       if (!validPassword(password))
         throw new Error('xlx-auth: set DSH_XLX_BOOTSTRAP_PASSWORD to 6–256 characters for the first startup')
       const { hash, salt } = await passwordRecord(password)

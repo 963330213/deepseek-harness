@@ -16,6 +16,8 @@ import type { RunProfileOptions } from './profile-boot.ts'
 export type RunCliOptions = Pick<RunProfileOptions, 'packageManager'> & {
   /** Permit plugin commands for Desktop's existing profile; reserved for its installed carrier. */
   manageDesktopProfile?: boolean
+  /** Prepare the repository's local bundles before a source Web launch. */
+  prepareSourceWeb?: () => Promise<void>
 }
 
 /**
@@ -25,13 +27,17 @@ export type RunCliOptions = Pick<RunProfileOptions, 'packageManager'> & {
  */
 export async function runCli(options: RunCliOptions = {}): Promise<void> {
   const version = getDshRuntimeVersion()
-  const { manageDesktopProfile, ...profileOptions } = options
+  const { manageDesktopProfile, prepareSourceWeb, ...profileOptions } = options
   const invocation = parseDshArgs(process.argv.slice(2), version, manageDesktopProfile)
 
   switch (invocation.mode) {
     case 'profile': {
       const { runProfile } = await import('./profile-boot.ts')
       try {
+        if (invocation.profile === 'web' && invocation.fromDefaultProfile === undefined
+          && !invocation.args.some(arg => arg === '--help' || arg === '-h')) {
+          await prepareSourceWeb?.()
+        }
         await runProfile({
           environment: loadLayeredEnv('dsh'),
           profile: invocation.profile,

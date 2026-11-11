@@ -12,7 +12,7 @@ import { testProfileResolution } from './profiles/headless/tests/profile-resolut
  */
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url))
-const dshSourceBin = 'apps/cli/src/bin.ts'
+const dshSourceBin = 'scripts/dsh-source.ts'
 
 describe('dsh SOURCE launcher (node --import tsx/esm)', () => {
   testProfileResolution('src')
@@ -21,7 +21,7 @@ describe('dsh SOURCE launcher (node --import tsx/esm)', () => {
     const rootPackage = JSON.parse(await readFile(new URL('../../../package.json', import.meta.url), 'utf8')) as {
       readonly scripts?: Record<string, string>
     }
-    expect(rootPackage.scripts?.dsh).toBe('node --import tsx/esm apps/cli/src/bin.ts')
+    expect(rootPackage.scripts?.dsh).toBe(`node --import tsx/esm ${dshSourceBin}`)
   })
 
   it('boots the source entry and requires a profile', async () => {
