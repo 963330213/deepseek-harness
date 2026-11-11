@@ -1,0 +1,40 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write plugins/xlx-agent-team/README.md
+/:
+  en: 542083a426d1c01f
+  zh: 3219af3a01a8f995
+/dsh-xlx-agent-team:
+  en: a68998aeb8cb122d
+  zh: 91ff0e1463a43775
+/dsh-xlx-agent-team/summary:
+  en: 666f8005d0aa8ca0
+  zh: d9409aa52c4fbab7
+/dsh-xlx-agent-team/table-of-contents:
+  en: 56fd1725bdc9ef93
+  zh: dc4dbee4ce4fd163
+/dsh-xlx-agent-team/use-this-package:
+  en: bbff250eba0f1b89
+  zh: b20a47f82d8ab6e0
+/dsh-xlx-agent-team/use-this-package/run-from-a-source-checkout:
+  en: cfb5c11f45d9728d
+  zh: a480a5e990df4573
+/dsh-xlx-agent-team/use-this-package/member-capabilities:
+  en: 812f0e1291b584c2
+  zh: 6b39de4900e64281
+/dsh-xlx-agent-team/use-this-package/server-installation:
+  en: 8e756ed199c12ef5
+  zh: bc53a54fb39f7ae0
+/dsh-xlx-agent-team/understand-the-implementation:
+  en: 3e5817095bd37783
+  zh: 5c04985b78afd546
+/dsh-xlx-agent-team/model-experience:
+  en: 50ae4f2c4693a9b9
+  zh: f77a16e9c972f2ab
+/dsh-xlx-agent-team/known-limitations:
+  en: 45d1388dd5ad7f40
+  zh: 748b56849dad7cea
+/dsh-xlx-agent-team/known-limitations/dev-note:
+  en: dad9249db4b46a31
+  zh: bae4da9d3e22605b

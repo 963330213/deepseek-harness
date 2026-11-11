@@ -1,0 +1,6 @@
+- insert:
+    - id: xlx-agent-team
+      name: dsh-xlx-agent-team
+      config:
+        enabled: true
+        members: {}

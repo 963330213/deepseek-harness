@@ -1,0 +1,78 @@
+.page, .editor { display: flex; flex-direction: column; gap: 16px; min-width: 0; color: var(--dsw-alias-label-primary); font-size: 13px; }
+.panel { width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: auto; scrollbar-gutter: stable; color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-base); }
+.panelContent { max-width: 960px; margin: 0 auto; padding: max(28px, var(--dsh-frame-top-clearance, 0px)) clamp(24px, 4vw, 48px) 48px; }
+.panelHeader { margin-bottom: 32px; }
+.panelHeader h1 { margin: 0; font-size: 24px; font-weight: 500; line-height: 1.4; }
+.panelHeader p { margin: 8px 0 0; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 1.6; }
+.toggle { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.help, .meta, .status, .field small { color: var(--dsw-alias-label-secondary); }
+.help, .instructions, .empty { margin: 0; line-height: 1.6; }
+.toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.toolbar > span { flex: 1 1 220px; min-width: 0; }
+.feedback { min-height: 20px; color: var(--dsw-alias-label-secondary); }
+.members { display: flex; flex-direction: column; }
+.member { display: flex; align-items: flex-start; gap: 16px; padding: 16px 0; border-bottom: 0.5px solid var(--dsw-alias-border-l3); }
+.memberText { flex: 1; min-width: 0; }
+.memberTitle { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-weight: 500; overflow-wrap: anywhere; }
+.status { font-size: 12px; font-weight: 400; }
+.meta { margin-top: 4px; overflow-wrap: anywhere; }
+.instructions { margin-top: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.actions { display: flex; flex-shrink: 0; gap: 4px; }
+.field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.field textarea, .field select { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 0.5px solid var(--dsw-alias-border-l4); border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font: inherit; }
+.field textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
+.field textarea.codeInput { font-family: ui-monospace, Consolas, monospace; tab-size: 2; }
+.field select { min-height: 36px; }
+.field small { line-height: 1.5; }
+.notice { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: var(--dsw-alias-label-secondary); }
+.error { color: var(--dsw-alias-state-error-primary); margin: 0; }
+.empty { padding: 24px 0; color: var(--dsw-alias-label-secondary); }
+.skeleton { height: 160px; border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-layer-2); }
+.tabs, .choices, .capabilitySummary { display: flex; flex-wrap: wrap; gap: 8px; }
+.memberDialog { width: min(720px, 100%); max-height: 100%; }
+.memberDialogContent { min-height: 0; overflow: auto; scrollbar-gutter: stable; }
+.tabs { padding-bottom: 12px; border-bottom: 0.5px solid var(--dsw-alias-border-l3); }
+.tabs button[aria-pressed="true"], .choices button[aria-pressed="true"] { background: var(--dsw-alias-bg-layer-3); }
+.tabs button[aria-pressed="true"] { box-shadow: inset 0 -2px 0 var(--dsw-alias-label-primary); }
+.capability { margin: 0; padding: 16px; border: 0.5px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-md); min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.capability legend { padding: 0 6px; font-weight: 500; overflow-wrap: anywhere; }
+.formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.capabilityList { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.capabilityList th, .capabilityList td { text-align: left; vertical-align: top; padding: 12px 8px; border-bottom: 0.5px solid var(--dsw-alias-border-l3); overflow-wrap: anywhere; }
+.capabilityList th { color: var(--dsw-alias-label-secondary); font-weight: 500; }
+.capabilityList th:first-child, .capabilityList td:first-child { padding-left: 0; }
+.capabilityList th:nth-child(2), .capabilityList td:nth-child(2) { width: 52px; }
+.capabilityList th:last-child, .capabilityList td:last-child { width: 76px; padding-right: 0; }
+.capabilityList td:nth-child(2), .capabilityList td:last-child { vertical-align: middle; }
+.capabilityList .meta { line-height: 1.6; }
+.skillFiles { margin: 0; padding-left: 20px; color: var(--dsw-alias-label-secondary); line-height: 1.6; overflow-wrap: anywhere; }
+.sectionToolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.switchField { display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.switchField button { margin-block: 7px; }
+.fieldPanel, .uploadPanel { padding: 14px; border: 0.5px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-md); min-width: 0; }
+.fieldPanel { display: flex; flex-direction: column; gap: 10px; }
+.fieldPanel summary { cursor: pointer; margin-bottom: 4px; }
+.uploadPanel { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; background: var(--dsw-alias-bg-layer-2); }
+.uploadPanel p { margin-bottom: 0; line-height: 1.5; }
+.grantList { display: flex; flex-wrap: wrap; gap: 6px; }
+.grantList button { max-width: 100%; overflow-wrap: anywhere; }
+.grantList button[aria-pressed="true"] { background: var(--dsw-alias-bg-layer-3); }
+.fieldChoices { max-height: 300px; overflow: auto; padding: 4px; }
+.fieldChoice { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px; border-bottom: 0.5px solid var(--dsw-alias-border-l3); overflow-wrap: anywhere; }
+.fieldChoice > label { min-width: 0; max-width: 100%; }
+.fieldType, .fieldComment { color: var(--dsw-alias-label-secondary); font-size: 12px; }
+.capabilitySummary { margin-top: 8px; color: var(--dsw-alias-label-secondary); overflow-wrap: anywhere; }
+.field input[type="file"] { max-width: 100%; font: inherit; }
+@media (max-width: 480px) {
+  .formGrid { grid-template-columns: 1fr; }
+  .member { gap: 8px; }
+  .toolbar > span { flex-basis: 100%; }
+  .uploadPanel { grid-template-columns: auto minmax(0, 1fr); }
+  .uploadPanel > button { grid-column: 2; justify-self: start; }
+}
+@media (pointer: coarse) {
+  .field input, .field textarea, .field select, .toolbar input { font-size: 16px; }
+}
+@media (max-width: 767px) {
+  .panelContent { padding-inline: 20px; }
+}

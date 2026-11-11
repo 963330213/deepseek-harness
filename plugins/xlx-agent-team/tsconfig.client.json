@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "DOM", "DOM.Iterable", "ESNext.Disposable"],
+    "typeRoots": ["../../scripts/types", "../../node_modules/@types"],
+    "types": ["client-build-environment", "client-assets"]
+  },
+  "include": ["src/client", "src/types.ts", "src/css-modules.d.ts"],
+  "references": [
+    { "path": "../../vendor/cordis" },
+    { "path": "../../packages/client/locale/tsconfig.client.json" },
+    { "path": "../../packages/client/store" },
+    { "path": "../../packages/client/ui-primitives" },
+    { "path": "../../packages/client/ui-slots" },
+    { "path": "../../packages/client/ui-renderer" },
+    { "path": "../../packages/client/ui-sidebar" },
+    { "path": "../../packages/client/ui-layout" },
+    { "path": "../../packages/client/ui-settings/tsconfig.client.json" },
+    { "path": "../../packages/client/ui-plugin-manager/tsconfig.client.json" },
+    { "path": "../../packages/api/remotes/tsconfig.client.json" },
+    { "path": "../../packages/typert/protocol" }
+  ]
+}

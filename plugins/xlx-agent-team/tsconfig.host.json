@@ -1,0 +1,56 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "../.."
+  },
+  "include": [
+    "src/*.ts",
+    "tsdown.config.ts"
+  ],
+  "references": [
+    {
+      "path": "../../vendor/cordis"
+    },
+    {
+      "path": "../../vendor/schemastery"
+    },
+    {
+      "path": "../../packages/core/tools"
+    },
+    {
+      "path": "../../packages/subagent/subagent"
+    },
+    {
+      "path": "../../packages/team/agent-team"
+    },
+    {
+      "path": "../../packages/llm/llm"
+    },
+    {
+      "path": "../../packages/core/agent"
+    },
+    {
+      "path": "../../packages/util/brand"
+    },
+    {
+      "path": "../../packages/core/session"
+    },
+    {
+      "path": "../../packages/storage/storage-domain"
+    },
+    {
+      "path": "../../packages/skill/skill-filesystem"
+    },
+    {
+      "path": "../../packages/skill/skill"
+    },
+    {
+      "path": "../../packages/mcp/mcp-client"
+    },
+    {
+      "path": "../../packages/credentials/credentials"
+    },
+    { "path": "../../packages/typert/protocol" },
+    { "path": "../../packages/typert/registry" }
+  ]
+}
