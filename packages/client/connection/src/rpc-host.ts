@@ -16,6 +16,7 @@ import { API_PATH } from './api-path.ts'
 import type { BrowserAuth } from './browser-auth.ts'
 import { Peer } from './peer.ts'
 import type {
+  BrowserAuthenticationProvider,
   PeerAdmission,
   ConnectionAdmission,
   ConnectionIndexRequest,
@@ -68,11 +69,12 @@ declare module '@deepseek-ai/cordis' {
 
 /** Host Connection service whose channel registrations belong to the caller fiber. */
 export class HostConnectionService extends Service implements HostConnectionHandle {
-  /** The Peer every authenticated browser connection shares. */
+  /** Owner Peer shared by browsers using native authentication. */
   readonly browserPeer: PeerScope
   private readonly peers = new Map<PeerId, PeerRecord>()
   private readonly owner: Context
   private disposed = false
+  private authenticationProvider: BrowserAuthenticationProvider | undefined
   private readonly interceptors = new Map<string, ConnectionRpcInterceptor>()
   private readonly fetchRoutes = new Map<string, RegisteredFetchRoute>()
 
@@ -88,6 +90,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
     ctx: Context,
     private readonly trustedHosts: readonly string[],
     private readonly browserAuth: BrowserAuth,
+    private readonly authentication: 'native' | 'plugin' = 'native',
   ) {
     super(ctx, 'connection')
     this.owner = ctx
@@ -125,15 +128,25 @@ export class HostConnectionService extends Service implements HostConnectionHand
     return 'rejection' in admission ? admission.rejection : undefined
   }
 
-  /** Browser requests share an owner Peer; API HTTP does not depend on an attached socket. */
+  /** Resolve the configured authentication provider; API HTTP needs no attached socket. */
   admit(request: ConnectionTrustRequest): PeerAdmission {
     if (!this.isTrusted(request)) return { rejection: 403 }
     if (this.disposed) return { rejection: 401 }
+    if (this.authentication === 'plugin') return this.authenticationProvider?.admit(request) ?? { rejection: 401 }
     const secure = this.owner.get('webServer')?.protocol === 'https:'
     if (this.browserAuth.isAuthenticated(request, secure)) return { peer: this.browserPeer }
     const id = this.browserAuth.authenticateApi(request, secure)
     const record = id === undefined ? undefined : this.peers.get(id)
     return record === undefined ? { rejection: 401 } : { peer: record.peer }
+  }
+
+  registerBrowserAuthentication(provider: BrowserAuthenticationProvider): () => Promise<void> {
+    if (this.authentication !== 'plugin') throw new Error('connection: set authentication to plugin before installing an account provider')
+    return this.ctx.effect(() => {
+      if (this.authenticationProvider !== undefined) throw new Error('connection: account provider already registered')
+      this.authenticationProvider = provider
+      return () => { this.authenticationProvider = undefined }
+    }, 'connection: browser authentication provider')
   }
 
   /** Create one in-process Peer owned by the Context that read this service. */
@@ -178,6 +191,11 @@ export class HostConnectionService extends Service implements HostConnectionHand
    * @param response - response owned to completion.
    */
   authorizeConnect(request: ConnectionIndexRequest, response: ConnectionIndexResponse): void {
+    if (this.authentication === 'plugin') {
+      response.writeHead(401)
+      response.end('unauthorized')
+      return
+    }
     if (!this.isTrusted(request) || this.disposed) {
       response.writeHead(this.disposed ? 401 : 403)
       response.end(this.disposed ? 'unauthorized' : 'forbidden')
@@ -191,11 +209,20 @@ export class HostConnectionService extends Service implements HostConnectionHand
    * Authenticate an index request; native TLS listeners mint Secure cookies.
    */
   authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): boolean {
+    if (this.authentication === 'plugin') {
+      if (!this.isTrusted(request) || this.disposed || this.authenticationProvider === undefined) {
+        response.writeHead(401)
+        response.end('unauthorized')
+        return false
+      }
+      return this.authenticationProvider.authorizeIndex(request, response)
+    }
     return this.browserAuth.authorizeIndex(request, response, this.ctx.get('webServer')?.protocol === 'https:')
   }
 
   /** Add this process's launch token to the clean application URL. */
   authenticatedUrl(baseUrl: string): string {
+    if (this.authentication === 'plugin') return baseUrl
     return this.browserAuth.authenticatedUrl(baseUrl)
   }
 

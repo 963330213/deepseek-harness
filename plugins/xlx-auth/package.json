@@ -1,0 +1,12 @@
+{
+  "name": "dsh-xlx-auth",
+  "version": "0.1.0",
+  "description": "Local accounts, role grants, and private user environments for DeepSeek Harness Web",
+  "type": "module",
+  "exports": { ".": "./index.js", "./client": "./client.js", "./package.json": "./package.json" },
+  "engines": { "node": ">=24.9", "dsh": "0.2.2-rc.1" },
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" }, "client": { "platform": "web" } },
+  "files": ["*.js", "cordis.patch.yml", "README.md", "examples"],
+  "scripts": { "test": "node --test test/*.test.js" },
+  "license": "MIT"
+}

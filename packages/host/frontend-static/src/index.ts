@@ -157,11 +157,14 @@ export function apply(ctx: Context, config: Config): void {
       // A read with a Peer was admitted by its caller; an HTTP request carries
       // none and passes Connection's browser authentication instead.
       () => peer === undefined ? authorizeIndex(request) : undefined,
-      // The browser authentication admits the owner's shared browser Peer. The
-      // base goes in after all index transforms, so it precedes every resource
-      // reference they insert.
-      html => ctx.webServer.renderIndex(html, peer ?? ctx.connection.browserPeer)
-        .replace(/<head(?:\s[^>]*)?>/i, open => `${open}<base href="./">`),
+      // Bootstrap grants belong to the admitted account. Insert the base after
+      // index transforms so it precedes the resource references they insert.
+      (html) => {
+        const admission = peer === undefined ? ctx.connection.admit(request) : { peer }
+        if ('rejection' in admission) throw new Error('frontend-static: index authentication expired')
+        return ctx.webServer.renderIndex(html, admission.peer)
+          .replace(/<head(?:\s[^>]*)?>/i, open => `${open}<base href="./">`)
+      },
     ),
   }), 'frontend-static: fallback seat')
 }

@@ -202,13 +202,37 @@ export interface HostConnectionRpc {
   ): () => Promise<void>
 }
 
+/** Account authentication supplied by a plugin; native credentials cannot bypass it. */
+export interface BrowserAuthenticationProvider {
+  /**
+   * Resolve a live account for each HTTP request or socket admission.
+   * @param request - headers already admitted by the Host/Origin fence.
+   * @returns the live account Peer or a rejection status.
+   */
+  admit(request: ConnectionTrustRequest): PeerAdmission
+  /**
+   * Own an unauthenticated index response, normally redirecting to login.
+   * @param request - index request already admitted by the Host/Origin fence.
+   * @param response - response owned to completion when refusing index access.
+   * @returns whether the authenticated account may receive the index.
+   */
+  authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): boolean
+}
+
 /** Host `ctx.connection` members consumed by transport-independent adapters. */
 export interface HostConnectionHandle {
+  /**
+   * Install the account provider when configured with `authentication: 'plugin'`.
+   * Missing or disposed providers deny access; native launch tokens remain disabled.
+   * @param provider - plugin-owned account authentication.
+   * @returns disposer removing this provider.
+   */
+  registerBrowserAuthentication(provider: BrowserAuthenticationProvider): () => Promise<void>
   /** Generic RPC channel registry. */
   readonly rpc: HostConnectionRpc
   /** Exact Fetch routes for streaming or browser-native responses. */
   readonly fetch: HostConnectionFetch
-  /** The owner Peer every authenticated browser connection shares. */
+  /** Owner Peer shared by browsers using native authentication. */
   readonly browserPeer: PeerScope
 
   /**

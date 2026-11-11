@@ -1,0 +1,9 @@
+- id: connection
+  config:
+    authentication: plugin
+    trustedHosts: !!js ctx.webStartup.trustedHosts
+- insert:
+    - id: xlx-auth
+      name: dsh-xlx-auth
+      config:
+        file: !!js process.env.DSH_XLX_AUTH_CONFIG
