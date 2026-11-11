@@ -1,4 +1,4 @@
-/** Settings extension using the published DSH client module and slot protocols. */
+/** Opens the local user and role lists from User permissions in the Web sidebar. */
 window.__ModuleLoader__.load({
   id: 'dsh-xlx-auth',
   factory(require) {
@@ -9,10 +9,11 @@ window.__ModuleLoader__.load({
       Checkbox,
       Modal,
       Pill,
-      IconUserOutlineMedium,
+      IconShieldOutlineRegular,
     } = require('@deepseek-ai/dsh-client-ui-primitives')
     const h = React.createElement
-    const NS = 'settings.xlxUsers'
+    const NS = 'xlxAuth.permissions'
+    const PANEL_ID = 'user-permissions'
     const zh = {
       nav: '用户权限',
       description: '管理当前项目的用户、角色和访问权限',
@@ -140,8 +141,9 @@ window.__ModuleLoader__.load({
       queryError: 'Use letters, numbers, underscores or hyphens to search names.',
     }
     const styles = `
-      .xlx-users{display:flex;flex-direction:column;gap:20px;color:var(--dsw-alias-label-primary);font-size:13px;min-width:0}
-      .xlx-users h2{font-size:18px;font-weight:500;margin:0}.xlx-users h3{font-size:14px;font-weight:500;margin:0}
+      .xlx-permissions-panel{width:100%;height:100%;min-width:0;min-height:0;overflow:auto;scrollbar-gutter:stable;background:var(--dsw-alias-bg-base)}
+      .xlx-users{display:flex;flex-direction:column;gap:20px;max-width:960px;box-sizing:border-box;margin:0 auto;padding:max(28px,var(--dsh-frame-top-clearance,0px)) clamp(20px,4vw,48px) 48px;color:var(--dsw-alias-label-primary);font-size:13px;min-width:0}
+      .xlx-users h1{font-size:24px;font-weight:500;line-height:1.4;margin:0}.xlx-users h2{font-size:14px;font-weight:500;margin:0}
       .xlx-users p{margin:6px 0 0;line-height:1.6}.xlx-muted{color:var(--dsw-alias-label-tertiary)}
       .xlx-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}
       .xlx-toolbar>div{min-width:0;overflow-wrap:anywhere}.xlx-toolbar>button{flex-shrink:0}
@@ -614,7 +616,7 @@ window.__ModuleLoader__.load({
         ),
       )
     }
-    function Section({ t, useSnapshot, refresh, loadList, loadRoles, clearFeedback, save, logout }) {
+    function PermissionsContent({ t, useSnapshot, refresh, loadList, loadRoles, clearFeedback, save, logout }) {
       const state = useSnapshot((value) => value)
       const [dialog, setDialog] = React.useState(null)
       const open = (kind) => {
@@ -628,7 +630,7 @@ window.__ModuleLoader__.load({
         h(
           'header',
           { className: 'xlx-toolbar' },
-          h('div', null, h('h2', null, t('nav')), h('p', { className: 'xlx-muted' }, t('description'))),
+          h('div', null, h('h1', null, t('nav')), h('p', { className: 'xlx-muted' }, t('description'))),
           h(Button, { onClick: logout, disabled: state.busy }, t('logout')),
         ),
         !dialog ? h(Feedback, { state, t, retry: refresh }) : null,
@@ -643,7 +645,7 @@ window.__ModuleLoader__.load({
                 h(
                   'div',
                   null,
-                  h('h3', null, t(kind === 'users' ? 'userManagement' : 'roleManagement')),
+                  h('h2', null, t(kind === 'users' ? 'userManagement' : 'roleManagement')),
                   h('p', { className: 'xlx-muted' }, t(kind === 'users' ? 'isolation' : 'roleHint')),
                   h(
                     'span',
@@ -677,13 +679,13 @@ window.__ModuleLoader__.load({
     return {
       inject: ['slots', 'locale'],
       apply(ctx) {
-        ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'xlx-auth: settings copy')
+        ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'xlx-auth: permissions copy')
         ctx.effect(() => {
           const style = document.createElement('style')
           style.textContent = styles
           document.head.append(style)
           return () => style.remove()
-        }, 'xlx-auth: settings styles')
+        }, 'xlx-auth: permissions styles')
         const emptyList = () => ({
           items: [],
           total: 0,
@@ -809,29 +811,30 @@ window.__ModuleLoader__.load({
             abort.abort()
             listeners.clear()
           }
-        }, 'xlx-auth: settings data')
-        ctx.slots.inject('settings.section', () =>
-          ctx.slots.register(
+        }, 'xlx-auth: permissions data')
+        ctx.slots.inject('main', function* () {
+          yield ctx.slots.register(
             {
-              name: 'settings.section',
-              id: 'user-permissions',
-              order: 5,
-              label: () => ctx.locale.bind(NS)('nav'),
+              name: 'main',
+              key: PANEL_ID,
               locale: NS,
               inject: () => ({ hooks: { snapshot }, refresh, loadList, loadRoles, clearFeedback, save, logout }),
             },
-            Section,
-          ),
-        )
-        ctx.slots.inject('settings.section.icon', () =>
-          ctx.slots.register(
-            {
-              name: 'settings.section.icon',
-              id: 'user-permissions',
-            },
-            ({ size }) => h(IconUserOutlineMedium, { size }),
-          ),
-        )
+            (props) => h('div', { className: 'xlx-permissions-panel' }, h(PermissionsContent, props)),
+          )
+          yield ctx.slots.inject('sidebar.panellist', () =>
+            ctx.slots.register(
+              {
+                name: 'sidebar.panellist',
+                id: PANEL_ID,
+                order: 6,
+                label: () => ctx.locale.bind(NS)('nav'),
+                locale: NS,
+              },
+              ({ size }) => h(IconShieldOutlineRegular, { size }),
+            ),
+          )
+        })
       },
     }
   },
