@@ -50,9 +50,11 @@ export async function apply(ctx, options) {
     await Promise.all(retired)
   }
   let oauthLoginValidator
+  let teamCatalog
   const http = createAccountHttp({
     store, revoke, secure: ctx.webServer.protocol === 'https:',
     acceptsOAuthLogin: (audience, requestId) => oauthLoginValidator?.(audience, requestId) ?? false,
+    teamMembers: () => teamCatalog?.() ?? [],
   })
   ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path: '/_xlx', handler: http.handle }), 'xlx-auth: account routes')
   ctx.on('session/created', session => {
@@ -95,6 +97,12 @@ export async function apply(ctx, options) {
   // Dependents release their requests before the account database closes.
   ctx.provide('xlxProjectAccounts', {
     database: config.database,
+    registerTeamCatalog(read) {
+      if (teamCatalog) throw new Error('xlx-auth: team catalog is already registered')
+      teamCatalog = read
+      return () => { teamCatalog = undefined }
+    },
+    teamMemberIdsForSession: id => store.teamMemberIdsForSession(id),
     registerOAuthLoginValidator(validate) {
       if (oauthLoginValidator) throw new Error('xlx-auth: OAuth login validator is already registered')
       oauthLoginValidator = validate

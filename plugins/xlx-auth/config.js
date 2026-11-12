@@ -1,4 +1,6 @@
 /** Account and role identifiers accepted by the project authorization API. */
+export const ADMIN_ROLE = 'admin'
+
 /**
  * Check identifiers before persistence or inclusion in routes.
  * @param {unknown} value Submitted identifier.

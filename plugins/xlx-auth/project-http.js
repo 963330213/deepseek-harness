@@ -1,9 +1,11 @@
 /** Same-origin account routes mounted on DSH's WebServer. */
 import { CatalogError, passwordRecord, validPassword } from './auth-store.js'
-import { isKey } from './config.js'
+import { ADMIN_ROLE, isKey } from './config.js'
 
 const LOGIN_SECONDS = 12 * 60 * 60
 const MAX_BODY_BYTES = 8192
+const MAX_TEAM_MEMBER_GRANTS = 200
+const TEAM_MEMBER_ID = /^(?!lead$)[a-z][a-z0-9-]{0,31}$/
 const loginPage = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>登录 DSH</title>
 <style>body{font:14px system-ui;margin:0;background:#f6f7f8;color:#15171a;display:grid;min-height:100vh;place-items:center}main{background:white;border:1px solid #ddd;border-radius:20px;padding:32px;width:min(320px,75vw)}h1{font-size:22px;font-weight:500}label{display:grid;gap:8px;margin:20px 0}input,button{font:inherit;padding:12px;border:1px solid #ccc;border-radius:10px}button{width:100%;background:#17191c;color:white;cursor:pointer}.hint{color:#626872;line-height:1.6}a{color:inherit}</style></head>
@@ -69,7 +71,7 @@ async function readBody(req, media) {
  * @param {object} options Account store, revocation and active OAuth login validation.
  * @returns {object} HTTP handler, identity reader and lifecycle cleanup.
  */
-export function createAccountHttp({ store, revoke, secure, acceptsOAuthLogin }) {
+export function createAccountHttp({ store, revoke, secure, acceptsOAuthLogin, teamMembers = () => [] }) {
   const cookieName = secure ? '__Host-xlx_dsh_session' : 'xlx_dsh_session'
   const cookie = (token, age) =>
     `${cookieName}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${age}${secure ? '; Secure' : ''}`
@@ -165,7 +167,8 @@ export function createAccountHttp({ store, revoke, secure, acceptsOAuthLogin }) 
         (listing[1] === 'roles' && enabled !== '')
       )
         throw new RequestError(400, 'invalid-query')
-      send(res, 200, store.page(listing[1], { search, after, enabled, limit }))
+      const page = store.page(listing[1], { search, after, enabled, limit })
+      send(res, 200, listing[1] === 'roles' ? { ...page, teamMembers: teamMembers() } : page)
       return
     }
     if (url.pathname === '/_xlx/catalog' && req.method === 'GET') {
@@ -179,6 +182,12 @@ export function createAccountHttp({ store, revoke, secure, acceptsOAuthLogin }) 
     if (match[1] === 'roles') {
       if (typeof body.useHarness !== 'boolean' || typeof body.manageAccounts !== 'boolean')
         throw new RequestError(400, 'invalid-body')
+      if (body.teamMembers !== undefined && !(body.teamMembers === null && match[2] === ADMIN_ROLE) &&
+        (!Array.isArray(body.teamMembers) || body.teamMembers.length > MAX_TEAM_MEMBER_GRANTS ||
+          body.teamMembers.some(id => typeof id !== 'string' || !TEAM_MEMBER_ID.test(id)) ||
+          new Set(body.teamMembers).size !== body.teamMembers.length)) {
+        throw new RequestError(400, 'invalid-body')
+      }
       store.saveRole(match[2], body)
     } else {
       if (

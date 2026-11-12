@@ -3,12 +3,12 @@ import { randomBytes, scrypt, timingSafeEqual, createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { DatabaseSync } from 'node:sqlite'
 import { promisify } from 'node:util'
+import { ADMIN_ROLE } from './config.js'
 
 const scryptAsync = promisify(scrypt)
 const derive = (password, salt) => scryptAsync(password, salt, 64, { N: 32768, r: 8, p: 3, maxmem: 40 * 1024 * 1024 })
 const dummySalt = randomBytes(16)
 const dummyHash = randomBytes(64)
-const ADMIN_ROLE = 'admin'
 const schema = `
   CREATE TABLE users (
     id INTEGER PRIMARY KEY,
@@ -59,6 +59,16 @@ const ownershipSchema = `
   CREATE INDEX user_sessions_by_user ON user_sessions(user_id, session_id);
   PRAGMA user_version = 2;
 `
+const teamGrantsSchema = `
+  ALTER TABLE roles ADD COLUMN team_members TEXT
+    CHECK (team_members IS NULL OR json_type(team_members) = 'array');
+  PRAGMA user_version = 3;
+`
+
+function roleTeamMembers(role) {
+  if (role.team_members !== null) return JSON.parse(role.team_members)
+  return role.name === ADMIN_ROLE ? null : []
+}
 
 function hashToken(token) {
   return createHash('sha256').update(token).digest('hex')
@@ -120,8 +130,9 @@ export async function openAuthStore(config) {
     transaction(() => {
       const { user_version: version } = db.prepare('PRAGMA user_version').get()
       if (version === 0) db.exec(schema)
-      else if (version !== 1 && version !== 2) throw new Error('xlx-auth: unsupported authorization database version')
+      else if (version !== 1 && version !== 2 && version !== 3) throw new Error('xlx-auth: unsupported authorization database version')
       if (version < 2) db.exec(ownershipSchema)
+      if (version < 3) db.exec(teamGrantsSchema)
     })
     if (!db.prepare('SELECT 1 FROM users LIMIT 1').get()) {
       const password = process.env.DSH_XLX_BOOTSTRAP_PASSWORD
@@ -157,6 +168,16 @@ export async function openAuthStore(config) {
     FROM logins l JOIN (${account}) a ON a.id = l.user_id
     WHERE l.token_hash = ? AND l.audience = ? AND l.expires_at > ?
   `)
+  const sessionOwner = db.prepare('SELECT user_id FROM user_sessions WHERE session_id = ?')
+  const ownedSessionRoles = db.prepare(`
+    SELECT r.name, r.team_members FROM users u
+    JOIN user_roles ur ON ur.user_id = u.id JOIN roles r ON r.name = ur.role_name
+    WHERE u.id = ? AND u.enabled = 1 AND EXISTS (
+      SELECT 1 FROM user_roles gr JOIN roles g ON g.name = gr.role_name
+      WHERE gr.user_id = u.id AND (g.use_harness = 1 OR g.name = ?)
+    )
+  `)
+  const adminTeamRole = db.prepare('SELECT name, team_members FROM roles WHERE name = ?')
 
   return {
     enabledHarnessAccount(username) {
@@ -185,6 +206,17 @@ export async function openAuthStore(config) {
         .prepare('SELECT session_id FROM user_sessions WHERE user_id = ?')
         .all(userId)
         .map((row) => row.session_id)
+    },
+    teamMemberIdsForSession(sessionId) {
+      const owner = sessionOwner.get(sessionId)
+      const rows = owner ? ownedSessionRoles.all(owner.user_id, ADMIN_ROLE) : adminTeamRole.all(ADMIN_ROLE)
+      const grants = new Set()
+      for (const row of rows) {
+        const members = roleTeamMembers(row)
+        if (members === null) return null
+        for (const id of members) grants.add(id)
+      }
+      return grants
     },
     async authenticate(username, password) {
       const candidate = find.get(ADMIN_ROLE, username)
@@ -250,7 +282,7 @@ export async function openAuthStore(config) {
       }
       const where = filters.join(' AND ')
       const total = db.prepare(`SELECT count(*) AS total FROM ${table} WHERE ${where}`).get(...values).total
-      const columns = users ? 'id, username, enabled' : 'name, use_harness'
+      const columns = users ? 'id, username, enabled' : 'name, use_harness, team_members'
       const rows = db
         .prepare(`SELECT ${columns} FROM ${table} WHERE ${where} AND ${name} > ? ORDER BY ${name} LIMIT ?`)
         .all(...values, after, limit + 1)
@@ -273,14 +305,14 @@ export async function openAuthStore(config) {
         items: visible.map((row) =>
           users
             ? { username: row.username, enabled: Boolean(row.enabled), roles: namesByUser.get(row.id) ?? [] }
-            : { name: row.name, useHarness: Boolean(row.use_harness), manageAccounts: row.name === ADMIN_ROLE },
+            : { name: row.name, useHarness: Boolean(row.use_harness), manageAccounts: row.name === ADMIN_ROLE, teamMembers: roleTeamMembers(row) },
         ),
         total,
         next: more ? visible.at(-1)[name] : null,
       }
     },
     list() {
-      const roles = db.prepare('SELECT name, use_harness FROM roles ORDER BY name').all()
+      const roles = db.prepare('SELECT name, use_harness, team_members FROM roles ORDER BY name').all()
       const users = db.prepare('SELECT id, username, enabled FROM users ORDER BY username').all()
       const grants = db.prepare('SELECT user_id, role_name FROM user_roles ORDER BY role_name').all()
       const namesByUser = new Map()
@@ -294,6 +326,7 @@ export async function openAuthStore(config) {
           name: r.name,
           useHarness: Boolean(r.use_harness),
           manageAccounts: r.name === ADMIN_ROLE,
+          teamMembers: roleTeamMembers(r),
         })),
         users: users.map((u) => ({
           username: u.username,
@@ -304,12 +337,17 @@ export async function openAuthStore(config) {
     },
     saveRole(name, role) {
       return transaction(() => {
+        const previous = db.prepare('SELECT use_harness FROM roles WHERE name = ?').get(name)
         db.prepare(
-          `INSERT INTO roles (name, use_harness, manage_accounts) VALUES (?, ?, ?)
-          ON CONFLICT (name) DO UPDATE SET use_harness = excluded.use_harness, manage_accounts = excluded.manage_accounts`,
-        ).run(name, Number(role.useHarness), Number(name === ADMIN_ROLE))
+          `INSERT INTO roles (name, use_harness, manage_accounts, team_members) VALUES (?, ?, ?, ?)
+          ON CONFLICT (name) DO UPDATE SET use_harness = excluded.use_harness, manage_accounts = excluded.manage_accounts,
+            team_members = CASE WHEN ? THEN excluded.team_members ELSE roles.team_members END`,
+        ).run(name, Number(role.useHarness), Number(name === ADMIN_ROLE),
+          role.teamMembers == null ? null : JSON.stringify(role.teamMembers), Number(role.teamMembers !== undefined))
         if (!requireAdmin()) throw new CatalogError('last-administrator')
-        db.prepare('DELETE FROM logins WHERE user_id IN (SELECT user_id FROM user_roles WHERE role_name = ?)').run(name)
+        if (previous && Boolean(previous.use_harness) !== role.useHarness) {
+          db.prepare('DELETE FROM logins WHERE user_id IN (SELECT user_id FROM user_roles WHERE role_name = ?)').run(name)
+        }
       })
     },
     saveUser(username, user, credential) {

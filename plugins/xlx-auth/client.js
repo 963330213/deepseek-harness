@@ -39,6 +39,10 @@ window.__ModuleLoader__.load({
       adminHint: '仅 admin 角色可登录后台并管理用户权限',
       isolation: '普通用户通过 MCP 访问自己的工作区和会话',
       roleHint: '用户的有效权限取所有已分配角色的并集',
+      teamGrants: '授权智能体',
+      allTeamMembers: '授权全部智能体',
+      noTeamMembers: '暂无可选的团队成员',
+      removedMember: '已移除',
       noRoles: '未分配角色',
       saved: '已保存',
       error: '操作失败，请重试',
@@ -102,6 +106,10 @@ window.__ModuleLoader__.load({
       adminHint: 'The admin role can sign in to the web app and manage user permissions.',
       isolation: 'Regular users access their own workspace and sessions through MCP.',
       roleHint: 'A user receives the combined permissions of their assigned roles.',
+      teamGrants: 'Authorized teammates',
+      allTeamMembers: 'Authorize all teammates',
+      noTeamMembers: 'No team members are configured.',
+      removedMember: 'Removed',
       noRoles: 'No roles',
       saved: 'Saved',
       error: 'Operation failed. Please retry.',
@@ -153,6 +161,8 @@ window.__ModuleLoader__.load({
       .xlx-actions{display:flex;flex-wrap:wrap;gap:8px}.xlx-editor{display:grid;gap:20px;outline:none}
       .xlx-field{display:grid;gap:8px;min-width:0}.xlx-checks{display:flex;flex-wrap:wrap;gap:12px 20px}
       .xlx-checks>*{min-width:0;overflow-wrap:anywhere}.xlx-status{line-height:1.6;overflow-wrap:anywhere}
+      .xlx-team-grants{margin:0;min-width:0;padding:12px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md)}
+      .xlx-team-grants .xlx-checks{max-height:180px;overflow:auto;padding:4px}
       .xlx-skeleton{height:44px;background:var(--dsw-alias-button-ghost-hover);border-radius:8px}
       .xlx-modal{width:min(880px,100%);max-height:100%}.xlx-edit-modal{width:min(620px,100%)}.xlx-modal-content{min-height:0;overflow:auto}
       .xlx-modal-body{display:flex;flex-direction:column;gap:20px;font-size:13px;color:var(--dsw-alias-label-primary);min-width:0}
@@ -284,11 +294,20 @@ window.__ModuleLoader__.load({
         }),
       )
     }
-    function Editor({ draft, roleOptions, loadRoles, t, busy, save, cancel }) {
+    function Editor({ draft, roleOptions, loadRoles, teamCatalog, t, busy, save, cancel }) {
       const [value, setValue] = React.useState(draft)
       const focus = React.useCallback((node) => node?.focus({ preventScroll: true }), [])
       const field = (key, patch) => setValue((previous) => ({ ...previous, [key]: patch }))
       const user = draft.kind === 'users'
+      const teamGrants = value.teamMembers ?? []
+      const selectedTeammates = new Set(teamGrants)
+      const configuredTeammates = new Set(teamCatalog.map(member => member.id))
+      const allTeammates = value.teamMembers === null
+      const choices = user ? [] : [
+        ...teamCatalog.map(({ id, name }) => ({ id, label: `${name} (${id})` })),
+        ...teamGrants.filter(id => !configuredTeammates.has(id))
+          .map(id => ({ id, label: `${id} · ${t('removedMember')}` })),
+      ]
       return h(
         'form',
         {
@@ -360,6 +379,26 @@ window.__ModuleLoader__.load({
                 onChange: (checked) => field('useHarness', checked),
               }),
               h('p', { className: 'xlx-muted' }, t('adminHint')),
+              h(
+                'fieldset',
+                { className: 'xlx-field xlx-team-grants' },
+                h('legend', null, t('teamGrants')),
+                value.manageAccounts && h(Checkbox, {
+                  label: t('allTeamMembers'),
+                  checked: allTeammates,
+                  disabled: busy,
+                  onChange: checked => field('teamMembers', checked ? null : teamCatalog.map(member => member.id)),
+                }),
+                choices.length > 0
+                  ? h('div', { className: 'xlx-checks' }, choices.map(({ id, label }) => h(Checkbox, {
+                      key: id,
+                      label,
+                      checked: allTeammates || selectedTeammates.has(id),
+                      disabled: busy || allTeammates,
+                      onChange: checked => field('teamMembers', checked ? [...teamGrants, id] : teamGrants.filter(grant => grant !== id)),
+                    })))
+                  : h('span', { className: 'xlx-muted' }, t('noTeamMembers')),
+              ),
             ),
         h(
           'div',
@@ -398,6 +437,7 @@ window.__ModuleLoader__.load({
                 name: row?.name ?? '',
                 useHarness: row?.useHarness ?? true,
                 manageAccounts: row?.manageAccounts ?? false,
+                teamMembers: row ? row.teamMembers : [],
                 isNew: !row,
               },
         )
@@ -427,6 +467,7 @@ window.__ModuleLoader__.load({
           h(Feedback, { state, t, retry: draft ? undefined : () => loadList(kind, data.requested) }),
           draft
             ? h(Editor, {
+                teamCatalog: data.teamMembers ?? [],
                 key: `${draft.kind}:${draft.name}:${draft.isNew}`,
                 draft,
                 roleOptions: state.roleOptions,
@@ -775,7 +816,7 @@ window.__ModuleLoader__.load({
           const body =
             value.kind === 'users'
               ? { enabled: value.enabled, roles: value.roles, ...(value.password ? { password: value.password } : {}) }
-              : { useHarness: value.useHarness, manageAccounts: value.manageAccounts }
+              : { useHarness: value.useHarness, manageAccounts: value.manageAccounts, teamMembers: value.teamMembers }
           try {
             await request(`${value.kind}/${value.name}`, {
               method: 'PUT',

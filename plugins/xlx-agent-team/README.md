@@ -84,7 +84,7 @@ The profile also needs the built-in storage-domain, skills and credential servic
 <a id="model-experience"></a>
 ## Model Experience
 
-The lead receives `team_members` and `team_delegate` when the plugin and at least one member are enabled. The roster tool exposes responsibilities and model routes. Delegation includes the saved role and assigned task in the child's logged initial message, and returns its runtime name. The lead can use existing messaging and task-board tools, then integrate completion notifications. Configured-member delegation is available only to the root agent.
+The root agent receives `team_members` and `team_delegate` when the plugin has an enabled member available to the session. With XLX Auth installed, the session's role grants determine which members the lead can see, start, or message again. A restricted session needs a fresh delegation to resume work assigned before member identifiers were recorded. Delegation logs the saved role and assigned task in the child's initial message and returns its runtime name.
 
 <a id="known-limitations"></a>
 ## Known Limitations

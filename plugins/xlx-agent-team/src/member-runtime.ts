@@ -13,12 +13,26 @@ import { z } from 'zod'
 import { parseCapabilities, parseStringMap, validateCapabilities, type MemberCapabilities } from './capabilities.ts'
 import { readSkillHeader } from './skill-bundle.ts'
 import { installDatabaseTools, prepareRead } from './database.ts'
+import { MEMBER_ID_PATTERN } from './types.ts'
 
 const SNAPSHOT_PREFIX = 'xlx-team-'
+type AcceptedMember = MemberCapabilities & { memberId?: string }
 const snapshots = defineDomain({
   name: 'xlx_team_capabilities', version: 1, layout: 'per-record',
-  tables: { members: domainTable<SessionId, MemberCapabilities>(z.unknown().transform(raw => validateCapabilities(parseCapabilities(raw)))) },
+  tables: { members: domainTable<SessionId, AcceptedMember>(z.unknown().transform(raw => {
+    const capabilities = validateCapabilities(parseCapabilities(raw))
+    const memberId = raw && typeof raw === 'object' && 'memberId' in raw ? raw.memberId : undefined
+    if (memberId === undefined) return capabilities
+    if (typeof memberId !== 'string' || !MEMBER_ID_PATTERN.test(memberId)) throw new Error('Invalid saved team member identifier')
+    return { ...capabilities, memberId }
+  })) },
 })
+
+interface MemberRuntime {
+  admit(memberId: string, value: unknown): Promise<SessionId>
+  /** Returns null for legacy team children and undefined for other children. */
+  memberOf(childId: SessionId): string | null | undefined
+}
 
 /**
  * Install accepted additions into a single member context, with independent dependency ownership.
@@ -55,9 +69,9 @@ const applyMember = async (ctx: Context, config: MemberCapabilities): Promise<vo
 /**
  * Persist capability admission before child creation and restore the same snapshot on cold resume.
  * @param ctx - Team plugin context owning the admission store and creation listener.
- * @returns A function that admits a configuration and returns the exact child session id.
+ * @returns Child admission and lookup of the member associated with a saved child.
  */
-export const createMemberRuntime = async (ctx: Context): Promise<(value: unknown) => Promise<SessionId>> => {
+export const createMemberRuntime = async (ctx: Context): Promise<MemberRuntime> => {
   const domain = await ctx.storageDomain.open(snapshots)
   ctx.effect(() => () => domain.close(), 'xlx-team: admission snapshots')
   const table = domain.table('members')
@@ -69,13 +83,18 @@ export const createMemberRuntime = async (ctx: Context): Promise<(value: unknown
     }
     await agent.ctx.plugin({ name: 'xlx-team-member', inject: ['tools', 'skills', 'credentials'], apply: applyMember }, accepted)
   })
-  return async value => {
-    const accepted = validateCapabilities(parseCapabilities(structuredClone(value)))
-    for (const database of accepted.databases) for (const example of database.examples) {
-      if (prepareRead(example.sql, database).parameters !== example.parameters.length) throw new Error('SQL example parameter descriptions must match its ? placeholders')
-    }
-    const id = brandString<SessionId>(`${SNAPSHOT_PREFIX}${randomUUID()}`)
-    await table.put(id, accepted)
-    return id
+  return {
+    async admit(memberId, value) {
+      const accepted = validateCapabilities(parseCapabilities(structuredClone(value)))
+      for (const database of accepted.databases) for (const example of database.examples) {
+        if (prepareRead(example.sql, database).parameters !== example.parameters.length) throw new Error('SQL example parameter descriptions must match its ? placeholders')
+      }
+      const id = brandString<SessionId>(`${SNAPSHOT_PREFIX}${randomUUID()}`)
+      await table.put(id, { ...accepted, memberId })
+      return id
+    },
+    memberOf(childId) {
+      return childId.startsWith(SNAPSHOT_PREFIX) ? table.get(childId)?.memberId ?? null : undefined
+    },
   }
 }
