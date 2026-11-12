@@ -6,13 +6,15 @@ import { dirname, isAbsolute, join } from 'node:path'
 import { openAuthStore } from './auth-store.js'
 import { createAccountHttp } from './project-http.js'
 import { accountBindings } from './permissions.js'
+import { installOAuth } from './oauth.js'
 
 export const name = 'xlx-auth'
-export const inject = ['webServer', 'connection', 'remoteAccess', 'workspaceRegistry']
+export const inject = ['webServer', 'connection', 'remoteAccess', 'workspaceRegistry', 'typertGateway', 'credentials']
 
 /** Install account routes and scoped resource grants.
  * @param {object} ctx Plugin-owned Cordis context.
- * @param {{file: string}} options Server-owned JSON configuration path.
+ * @param {{file: string, mcpResource?: string}} options Account config file and optional initial MCP resource URL.
+ * @returns {Promise<void>} Resolves after account and OAuth routes are installed.
  */
 export async function apply(ctx, options) {
   const config = JSON.parse(readFileSync(options.file, 'utf8'))
@@ -49,11 +51,11 @@ export async function apply(ctx, options) {
     }
     await Promise.all(retired)
   }
-  let oauthLoginValidator
+  let oauth
   let teamCatalog
   const http = createAccountHttp({
     store, revoke, secure: ctx.webServer.protocol === 'https:',
-    acceptsOAuthLogin: (audience, requestId) => oauthLoginValidator?.(audience, requestId) ?? false,
+    acceptsOAuthLogin: (audience, requestId) => oauth?.acceptsLogin(audience, requestId) ?? false,
     teamMembers: () => teamCatalog?.() ?? [],
   })
   ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path: '/_xlx', handler: http.handle }), 'xlx-auth: account routes')
@@ -94,8 +96,7 @@ export async function apply(ctx, options) {
     await Promise.all([...peers.values()].map(record => record.peer.dispose()))
     peers.clear()
   }, 'xlx-auth: login lifetimes')
-  // Dependents release their requests before the account database closes.
-  ctx.provide('xlxProjectAccounts', {
+  const accounts = {
     database: config.database,
     registerTeamCatalog(read) {
       if (teamCatalog) throw new Error('xlx-auth: team catalog is already registered')
@@ -103,11 +104,6 @@ export async function apply(ctx, options) {
       return () => { teamCatalog = undefined }
     },
     teamMemberIdsForSession: id => store.teamMemberIdsForSession(id),
-    registerOAuthLoginValidator(validate) {
-      if (oauthLoginValidator) throw new Error('xlx-auth: OAuth login validator is already registered')
-      oauthLoginValidator = validate
-      return () => { oauthLoginValidator = undefined }
-    },
     browserAccess(request) {
       const { audience, token, user } = http.identity(request)
       return {
@@ -124,5 +120,7 @@ export async function apply(ctx, options) {
     workspace: id => store.workspace(id),
     bindings: user => accountBindings(store, user),
     provisionWorkspace,
-  })
+  }
+  oauth = await installOAuth(ctx, accounts, options.mcpResource)
+  ctx.provide('xlxProjectAccounts', accounts)
 }

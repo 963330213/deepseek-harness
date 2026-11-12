@@ -1,7 +1,7 @@
 /** Local authorization-code issuer for the DSH MCP resource. */
 import { createHash, randomBytes } from 'node:crypto'
 import OAuth2Server from '@node-oauth/oauth2-server'
-import { readBody, readJson, sendJson } from './http.js'
+import { readBody, readJson, sendJson } from './oauth-http.js'
 import { showConsent } from './consent-page.js'
 
 const PREFIX = '/_xlx_oauth'

@@ -105,59 +105,97 @@ export const McpEditor = ({ value, peers, disabled, accept, close, saveError, t 
  */
 export const SkillEditor = ({ value, peers, disabled, accept, close, saveError, importingChanged, t }: EditorProps<MemberSkill> & { importingChanged?: (busy: boolean) => void }) => {
   const [draft, setDraft] = useState(value)
+  const [filename, setFilename] = useState<string>()
   const [enabled, setEnabled] = useState(value?.enabled ?? true)
-  const [error, setError] = useState(false)
+  const [error, setError] = useState<'skillZipRequired' | 'skillZipSize' | 'skillZipInvalid' | 'skillError'>()
   const [importing, setImporting] = useState(false)
+  const [dragging, setDragging] = useState(false)
   const uploadInput = useRef<HTMLInputElement>(null)
+  const uploadInFlight = useRef(false)
+  const dragDepth = useRef(0)
+  const uploadHelp = useId()
   const locked = disabled || importing
-  const upload = async (file: File) => {
-    if (!/\.zip$/i.test(file.name) || file.size > SKILL_BYTES) { setError(true); return }
+  const files = draft ? Object.keys(draft.files) : []
+  const upload = async (selection: FileList) => {
+    if (disabled || uploadInFlight.current) return
+    const file = selection.item(0)
+    if (selection.length !== 1 || !file || !/\.zip$/i.test(file.name)) { setError('skillZipRequired'); return }
+    if (file.size > SKILL_BYTES) { setError('skillZipSize'); return }
+    uploadInFlight.current = true
+    setError(undefined)
     setImporting(true)
     importingChanged?.(true)
     try {
       const skill = importSkill(file.name, new Uint8Array(await file.arrayBuffer()))
       setDraft(skill)
-      setError(false)
+      setFilename(file.name)
     } catch (importError) {
       // Failed imports leave the current bundle available for correction.
-      setError(true)
-    } finally { setImporting(false); importingChanged?.(false) }
+      setError('skillZipInvalid')
+    } finally {
+      uploadInFlight.current = false
+      setImporting(false)
+      importingChanged?.(false)
+    }
   }
   const submit = () => {
-    if (!draft) return
+    if (!draft || locked || uploadInFlight.current) return
     try {
       const candidate = { ...draft, enabled }
       validateCapabilities({ mcp: [], databases: [], skills: [...peers, candidate] })
+      setError(undefined)
       accept(candidate)
-    } catch (validationError) { setError(true) }
+    } catch (validationError) { setError('skillError') }
   }
-  return <Modal open className={css.memberDialog!} contentClassName={css.memberDialogContent!} title={t(value ? 'editSkill' : 'installSkill')} closeLabel={t('close')} onClose={() => { if (!locked) close() }}
-    footer={<><Button disabled={locked} onClick={close}>{t('cancel')}</Button><Button variant="primary" disabled={locked || !draft} onClick={submit}>{t('confirm')}</Button></>}>
-    <div className={css.editor} aria-busy={importing}>
-      <section className={css.uploadPanel} aria-label={t('importSkill')}>
-        <IconArchiveOutlineRegular size={22} />
-        <div>
-          <div className={css.memberTitle}>{t('importSkill')}</div>
-          <p className={css.meta}>{t('skillImportHint')}</p>
+  return <Modal open className={css.skillDialog!} contentClassName={css.memberDialogContent!} title={t(value ? 'editSkill' : 'installSkill')} closeLabel={t('close')} onClose={() => { if (!locked) close() }}
+    footer={<><Button disabled={locked} onClick={close}>{t('cancel')}</Button><Button variant="primary" disabled={locked || !draft} onClick={submit}>{t(value ? 'confirm' : 'installSkill')}</Button></>}>
+    <div className={css.editor}>
+      <input ref={uploadInput} type="file" accept=".zip,application/zip" disabled={locked} hidden onChange={event => {
+        const selection = event.currentTarget.files
+        if (selection?.length) void upload(selection)
+        event.currentTarget.value = ''
+      }} />
+      <section className={css.uploadPanel} data-filled={!!draft} data-dragging={dragging && !locked} aria-label={t('importSkill')} aria-busy={importing}
+        onDragEnter={event => {
+          if (!event.dataTransfer.types.includes('Files')) return
+          event.preventDefault()
+          dragDepth.current++
+          setDragging(true)
+        }}
+        onDragOver={event => {
+          if (!event.dataTransfer.types.includes('Files')) return
+          event.preventDefault()
+          event.dataTransfer.dropEffect = locked ? 'none' : 'copy'
+        }}
+        onDragLeave={() => {
+          dragDepth.current = Math.max(0, dragDepth.current - 1)
+          if (dragDepth.current === 0) setDragging(false)
+        }}
+        onDrop={event => {
+          if (!event.dataTransfer.types.includes('Files')) return
+          event.preventDefault()
+          dragDepth.current = 0
+          setDragging(false)
+          if (!locked) void upload(event.dataTransfer.files)
+        }}>
+        <div className={css.uploadHeader}>
+          <span className={css.uploadIcon}><IconArchiveOutlineRegular size={22} aria-hidden="true" /></span>
+          <div className={css.uploadCopy}>
+            <div className={css.memberTitle}>{draft?.name ?? t('dropSkillZip')}</div>
+            <p className={css.help} id={uploadHelp}>{draft?.description ?? t('skillImportHint')}</p>
+            {filename ? <p className={css.meta}>{filename}</p> : null}
+          </div>
+          <Button disabled={locked} data-modal-autofocus aria-describedby={draft ? undefined : uploadHelp} icon={<IconFolderOpenOutlineRegular size={16} />}
+            onClick={() => uploadInput.current?.click()}>{t(draft ? 'replaceZip' : 'chooseZip')}</Button>
         </div>
-        <input ref={uploadInput} type="file" accept=".zip,application/zip" disabled={locked} hidden onChange={event => {
-          const file = event.target.files?.[0]
-          event.target.value = ''
-          if (file) void upload(file)
-        }} />
-        <Button disabled={locked} icon={<IconFolderOpenOutlineRegular size={16} />} onClick={() => uploadInput.current?.click()}>{t(draft ? 'replaceZip' : 'chooseZip')}</Button>
+        {draft ? <details className={css.uploadFiles}>
+          <summary>{t('skillFiles')} · {files.length}</summary>
+          <ul className={css.skillFiles}>{files.map(path => <li key={path}>{path}</li>)}</ul>
+        </details> : null}
       </section>
-      {draft ? <section className={css.fieldPanel} aria-label={draft.name}>
-        <div className={css.memberTitle}>{draft.name}</div>
-        <p className={css.help}>{draft.description}</p>
-        <details>
-          <summary>{t('skillFiles')} · {Object.keys(draft.files).length}</summary>
-          <ul className={css.skillFiles}>{Object.keys(draft.files).map(path => <li key={path}>{path}</li>)}</ul>
-        </details>
-      </section> : null}
-      <div className={css.toggle}><span>{t('enableCapability')}</span><Switch label={t('enableCapability')} checked={enabled} disabled={locked} onChange={setEnabled} /></div>
       {importing ? <p role="status" className={css.help}>{t('importingSkill')}</p> : null}
-      {error || saveError ? <p role="alert" className={css.error}>{error ? t('skillError') : saveError}</p> : null}
+      {error || saveError ? <p role="alert" className={css.error}>{error ? t(error) : saveError}</p> : null}
+      {draft ? <div className={css.toggle}><span>{t('enableCapability')}</span><Switch label={t('enableCapability')} checked={enabled} disabled={locked} onChange={setEnabled} /></div> : null}
     </div>
   </Modal>
 }

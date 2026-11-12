@@ -3,14 +3,14 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/upgrade-guide/v0.2.2-rc.2/xlx-auth-mcp-only-members/guide.md
 /:
-  en: efef186f5dc8c008
-  zh: 0144f4ef910094f0
+  en: f144b798d5a9da43
+  zh: 05f8db1e80ecd4cb
 /xlx-auth-web-access-requires-the-admin-role:
   en: 6f487b5bd6345ede
   zh: fc50e778bd88f071
 /xlx-auth-web-access-requires-the-admin-role/change:
-  en: 70f2b63e413326ab
-  zh: e5de092dd7ba4687
+  en: 0400ac183e0f8867
+  zh: 745fc4ee77fdf446
 /xlx-auth-web-access-requires-the-admin-role/migration:
-  en: b491ee074583196d
-  zh: 01935e903b4c888f
+  en: 5442b303c5cc914f
+  zh: 7f23a1d9329d17b8

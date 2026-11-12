@@ -22,13 +22,14 @@ function resourceUrl(value) {
  * @returns {Promise<object>} Admin settings operations and the current routes.
  */
 export async function createMcpSettings(credentials, project, initialResource, open) {
+  // Retain the credential key used by the standalone OAuth plugin.
   const key = 'xlx-oauth/local-' + createHash('sha256').update(project).digest('hex')
   const record = await credentials.readRecord(key)
   let settings = record?.payload ?? { enabled: initialResource !== undefined, resource: initialResource ?? '', revision: null }
   if ((record && (record.kind !== 'grant' || typeof settings.revision !== 'string'))
     || typeof settings.enabled !== 'boolean' || typeof settings.resource !== 'string'
     || (settings.resource && !resourceUrl(settings.resource)) || (settings.enabled && !settings.resource)) {
-    throw new Error('xlx-oauth: invalid local MCP settings')
+    throw new Error('xlx-auth: invalid local MCP settings')
   }
   let active = settings.enabled ? await open(resourceUrl(settings.resource)) : undefined
   let saving = false

@@ -1,6 +1,6 @@
 /** Expose the Web profile as an MCP resource protected by DSH-issued access tokens. */
 import { randomUUID } from 'node:crypto'
-import { readJson, sendJson as send } from './http.js'
+import { readJson, sendJson as send } from './oauth-http.js'
 
 const SCOPE = 'mcp'
 /** Discovery path advertised in the MCP authentication challenge. */

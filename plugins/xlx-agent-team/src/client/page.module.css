@@ -30,6 +30,7 @@
 .skeleton { height: 160px; border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-layer-2); }
 .tabs, .choices, .capabilitySummary { display: flex; flex-wrap: wrap; gap: 8px; }
 .memberDialog { width: min(720px, 100%); max-height: 100%; }
+.skillDialog { width: min(540px, 100%); max-height: 100%; }
 .memberDialogContent { min-height: 0; overflow: auto; scrollbar-gutter: stable; }
 .tabs { padding-bottom: 12px; border-bottom: 0.5px solid var(--dsw-alias-border-l3); }
 .tabs button[aria-pressed="true"], .choices button[aria-pressed="true"] { background: var(--dsw-alias-bg-layer-3); }
@@ -60,11 +61,20 @@
 .sectionToolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 .switchField { display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .switchField button { margin-block: 7px; }
-.fieldPanel, .uploadPanel { padding: 14px; border: 0.5px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-md); min-width: 0; }
-.fieldPanel { display: flex; flex-direction: column; gap: 10px; }
-.fieldPanel summary { cursor: pointer; margin-bottom: 4px; }
-.uploadPanel { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; background: var(--dsw-alias-bg-layer-2); }
-.uploadPanel p { margin-bottom: 0; line-height: 1.5; }
+.fieldPanel { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 0.5px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-md); min-width: 0; }
+.uploadPanel { padding: 22px 16px; border: 1px dashed var(--dsw-alias-border-l4); border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-layer-2); }
+.uploadPanel[data-filled='true'] { padding: 14px; border-style: solid; }
+.uploadPanel[data-dragging='true'] { border-color: var(--dsw-alias-state-business-primary); background: var(--dsw-alias-bg-layer-3); }
+.uploadHeader { display: grid; justify-items: center; gap: 12px; text-align: center; }
+.uploadPanel[data-filled='true'] .uploadHeader { grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; justify-items: start; text-align: start; }
+.uploadIcon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-layer-3); }
+.uploadCopy { min-width: 0; overflow-wrap: anywhere; }
+.uploadPanel[data-filled='false'] .memberTitle { justify-content: center; }
+.uploadCopy .help { margin-top: 4px; }
+.uploadCopy .meta { margin-bottom: 0; }
+.uploadFiles { margin-top: 12px; padding-top: 10px; border-top: 0.5px solid var(--dsw-alias-border-l3); }
+.uploadFiles summary { width: fit-content; cursor: pointer; }
+.uploadFiles .skillFiles { margin-top: 6px; max-height: 144px; overflow: auto; }
 .grantList { display: flex; flex-wrap: wrap; gap: 6px; }
 .grantList button { max-width: 100%; overflow-wrap: anywhere; }
 .grantList button[aria-pressed="true"] { background: var(--dsw-alias-bg-layer-3); }
@@ -78,8 +88,8 @@
   .formGrid { grid-template-columns: 1fr; }
   .member { gap: 8px; }
   .toolbar > span { flex-basis: 100%; }
-  .uploadPanel { grid-template-columns: auto minmax(0, 1fr); }
-  .uploadPanel > button { grid-column: 2; justify-self: start; }
+  .uploadPanel[data-filled='true'] .uploadHeader { grid-template-columns: auto minmax(0, 1fr); }
+  .uploadPanel[data-filled='true'] .uploadHeader > button { grid-column: 2; }
   .resourceList th, .resourceList td { padding-inline: 4px; }
 }
 @media (pointer: coarse) {

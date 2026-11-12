@@ -6,19 +6,17 @@ import { openOAuthClients } from './oauth-clients.js'
 import { createOAuthMcp, MCP_METADATA_PATH } from './oauth-mcp.js'
 import { createSettingsHttp, SETTINGS_PATH } from './settings-http.js'
 
-export const name = 'xlx-oauth'
-export const inject = ['xlxProjectAccounts', 'webServer', 'connection', 'remoteAccess', 'typertGateway', 'credentials']
-
 /** Register MCP consent and validate OAuth login continuations for project accounts.
  * @param {object} ctx Plugin-owned Cordis context.
- * @param {{resource?: string}} options Optional initial MCP resource URL.
+ * @param {object} accounts Project account access and resource grants.
+ * @param {string | undefined} initialResource Initial MCP resource URL when no setting is saved.
+ * @returns {Promise<object>} Validator for login continuations of the active issuer.
  */
-export async function apply(ctx, options = {}) {
-  const accounts = ctx.xlxProjectAccounts
+export async function installOAuth(ctx, accounts, initialResource) {
   const project = await realpath(accounts.database)
   let clients
-  ctx.effect(() => () => clients?.close(), 'xlx-oauth: registered MCP clients')
-  const settings = await createMcpSettings(ctx.credentials, project, options.resource, async resource => {
+  ctx.effect(() => () => clients?.close(), 'xlx-auth: registered MCP clients')
+  const settings = await createMcpSettings(ctx.credentials, project, initialResource, async resource => {
     clients ??= openOAuthClients(project + '.mcp-clients.sqlite')
     const issuer = createLocalOAuth(resource, accounts, clients)
     const mcp = await createOAuthMcp({ resource }, {
@@ -40,21 +38,18 @@ export async function apply(ctx, options = {}) {
       },
     }
   })
-  ctx.effect(() => () => settings.close(), 'xlx-oauth: MCP request lifetimes')
-  ctx.effect(() => accounts.registerOAuthLoginValidator(
-    (audience, requestId) => settings.current()?.acceptsLogin(audience, requestId) ?? false,
-  ), 'xlx-oauth: project login continuations')
+  ctx.effect(() => () => settings.close(), 'xlx-auth: MCP request lifetimes')
   ctx.effect(() => ctx.remoteAccess.registerPolicy('xlx-mcp', {
     bindings(principal) {
       const user = accounts.enabledHarnessAccount(principal.username)
       return user?.id === principal.id ? accounts.bindings(user) : []
     },
-  }), 'xlx-oauth: MCP account grants')
+  }), 'xlx-auth: MCP account grants')
   const http = createSettingsHttp(settings, request => accounts.browserAccess(request), () => {
-    ctx.logger.error('xlx-oauth: could not complete the MCP configuration request')
+    ctx.logger.error('xlx-auth: could not complete the MCP configuration request')
   })
-  ctx.effect(() => () => http.close(), 'xlx-oauth: settings request lifetimes')
-  ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: SETTINGS_PATH, handler: http.handle }), 'xlx-oauth: settings')
+  ctx.effect(() => () => http.close(), 'xlx-auth: settings request lifetimes')
+  ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: SETTINGS_PATH, handler: http.handle }), 'xlx-auth: settings')
   for (const [path, method] of [
     [MCP_METADATA_PATH, 'metadata'],
     ['/mcp', 'handle'],
@@ -68,6 +63,7 @@ export async function apply(ctx, options = {}) {
         if (active) return active[method](req, res)
         res.writeHead(404, { 'cache-control': 'no-store' }).end()
       },
-    }), `xlx-oauth: MCP route ${path}`)
+    }), `xlx-auth: MCP route ${path}`)
   }
+  return { acceptsLogin: (audience, requestId) => settings.current()?.acceptsLogin(audience, requestId) ?? false }
 }

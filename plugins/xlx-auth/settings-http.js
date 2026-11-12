@@ -1,5 +1,5 @@
 /** Restrict OAuth configuration to signed-in project administrators. */
-import { readJson, sendJson } from './http.js'
+import { readJson, sendJson } from './oauth-http.js'
 
 /** Web-only OAuth configuration endpoint. */
 export const SETTINGS_PATH = '/_xlx_oauth/settings'
