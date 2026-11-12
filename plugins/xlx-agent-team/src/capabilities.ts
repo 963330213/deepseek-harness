@@ -69,6 +69,9 @@ export interface MemberCapabilities {
 const identifier = () => z.string().pattern(/^[a-z][a-z0-9-]{0,31}$/).required()
 const text = () => z.string().pattern(/\S/).required()
 const sqlIdentifier = () => z.string().pattern(MYSQL_IDENTIFIER)
+const sqlExampleSchema: z<SqlExample> = z.object({
+  id: identifier(), question: text(), sql: text(), parameters: z.array(String).default([]), description: z.string().default(''),
+})
 
 /** ZIP bundles shared by the whole profile or owned by one member. */
 export const skillBundlesSchema = z.array(z.object({
@@ -94,9 +97,7 @@ export const capabilitiesSchema: z<MemberCapabilities> = z.object({
     columns: z.dict(z.array(sqlIdentifier()).max(TABLE_COLUMN_LIMIT), sqlIdentifier()).default({}),
     maxRows: z.number().step(1).min(1).max(1000).default(100),
     timeoutMs: z.number().step(1).min(1000).max(60000).default(10000),
-    examples: z.array(z.object({
-      id: identifier(), question: text(), sql: text(), parameters: z.array(String).default([]), description: z.string().default(''),
-    })).default([]),
+    examples: z.array(sqlExampleSchema).default([]),
   })).default([]),
 }).default({ mcp: [], skills: [], databases: [] })
 
@@ -106,6 +107,13 @@ export const capabilitiesSchema: z<MemberCapabilities> = z.object({
  * @returns Validated capability fields with defaults applied.
  */
 export const parseCapabilities = (value: unknown): MemberCapabilities => z.resolve(value, capabilitiesSchema, {})[0]
+
+/**
+ * Validate one SQL example with the same field rules as the saved connection.
+ * @param value - Example fields submitted by the editor.
+ * @returns The parsed example.
+ */
+export const parseSqlExample = (value: unknown): SqlExample => z.resolve(value, sqlExampleSchema, {})[0]
 
 /**
  * Parse MCP environment or headers without accepting nested values or empty keys.

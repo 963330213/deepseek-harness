@@ -35,8 +35,6 @@
 .tabs { padding-bottom: 12px; border-bottom: 0.5px solid var(--dsw-alias-border-l3); }
 .tabs button[aria-pressed="true"], .choices button[aria-pressed="true"] { background: var(--dsw-alias-bg-layer-3); }
 .tabs button[aria-pressed="true"] { box-shadow: inset 0 -2px 0 var(--dsw-alias-label-primary); }
-.capability { margin: 0; padding: 16px; border: 0.5px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-md); min-width: 0; display: flex; flex-direction: column; gap: 16px; }
-.capability legend { padding: 0 6px; font-weight: 500; overflow-wrap: anywhere; }
 .formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .capabilityList { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .capabilityList th, .capabilityList td { text-align: left; vertical-align: top; padding: 12px 8px; border-bottom: 0.5px solid var(--dsw-alias-border-l3); overflow-wrap: anywhere; }
@@ -44,6 +42,7 @@
 .capabilityList th:first-child, .capabilityList td:first-child { padding-left: 0; }
 .capabilityList th:nth-child(2), .capabilityList td:nth-child(2) { width: 52px; }
 .capabilityList th:last-child, .capabilityList td:last-child { width: 76px; padding-right: 0; }
+.sqlExampleList :is(th, td):last-child { width: 92px; }
 .capabilityList td:nth-child(2), .capabilityList td:last-child { vertical-align: middle; }
 .capabilityList .meta { line-height: 1.6; }
 .resourceTabs { width: min(100%, 224px); margin-top: 16px; }
@@ -62,6 +61,19 @@
 .switchField { display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .switchField button { margin-block: 7px; }
 .fieldPanel { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 0.5px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-md); min-width: 0; }
+.databaseGrantsLayout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); align-items: start; gap: 12px; }
+.catalogHeading { margin: 0; font-size: inherit; font-weight: 500; }
+.tableSearch { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.tableSearch > span { min-width: 0; }
+.tableList { max-height: 248px; padding: 4px; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; border: 0.5px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-md); }
+.tableRows { margin: 0; padding: 0; list-style: none; }
+.tableList .tableOption { width: 100%; min-height: 36px; height: auto; padding: 6px 8px; justify-content: space-between; text-align: start; font-size: inherit; }
+.tableOption span { min-width: 0; overflow-wrap: anywhere; }
+.tableOption svg { flex-shrink: 0; }
+.tableList .tableOption[aria-pressed='true'] { background: var(--dsw-alias-bg-layer-3); }
+.tableListEnd { height: 1px; }
+.tableStatus { margin: 0; padding: 8px; color: var(--dsw-alias-label-secondary); }
+.columnContext { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; overflow-wrap: anywhere; }
 .uploadPanel { padding: 22px 16px; border: 1px dashed var(--dsw-alias-border-l4); border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-layer-2); }
 .uploadPanel[data-filled='true'] { padding: 14px; border-style: solid; }
 .uploadPanel[data-dragging='true'] { border-color: var(--dsw-alias-state-business-primary); background: var(--dsw-alias-bg-layer-3); }
@@ -92,8 +104,13 @@
   .uploadPanel[data-filled='true'] .uploadHeader > button { grid-column: 2; }
   .resourceList th, .resourceList td { padding-inline: 4px; }
 }
+@media (max-width: 640px) {
+  .databaseGrantsLayout { grid-template-columns: minmax(0, 1fr); }
+  .tableList { max-height: 192px; }
+}
 @media (pointer: coarse) {
-  .field input, .field textarea, .field select, .toolbar input { font-size: 16px; }
+  .field input, .field textarea, .field select, .toolbar input, .tableSearch input { font-size: 16px; }
+  .tableList .tableOption { min-height: 44px; }
 }
 @media (max-width: 767px) {
   .panelContent { padding-inline: 20px; }

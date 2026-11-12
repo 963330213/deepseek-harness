@@ -20,9 +20,9 @@ type Props = PropsLocale<'settings.xlxAgentTeam'> & {
 }
 
 const labels = {
-  mcp: { hint: 'mcpHint', add: 'addMcp', edit: 'editMcp', empty: 'emptyMcp' },
-  skills: { hint: 'skillsHint', add: 'installSkill', edit: 'editSkill', empty: 'emptySkills' },
-  databases: { hint: 'databaseHint', add: 'addDatabase', edit: 'editDatabase', empty: 'emptyDatabases' },
+  mcp: { add: 'addMcp', edit: 'editMcp', empty: 'emptyMcp' },
+  skills: { add: 'installSkill', edit: 'editSkill', empty: 'emptySkills' },
+  databases: { add: 'addDatabase', edit: 'editDatabase', empty: 'emptyDatabases' },
 } as const
 
 /**
@@ -47,7 +47,6 @@ export const CapabilityEditor = ({ section, value, change, disabled, importingCh
     else change({ ...value, databases: value.databases.map((item, cursor) => cursor === index ? { ...item, enabled } : item) })
   }
   return <div className={css.editor}>
-    <p className={css.help}>{t(label.hint)}</p>
     <div className={css.toolbar}><Button disabled={disabled} icon={<IconPlusOutlineRegular size={16} />} onClick={() => setEditing(-1)}>{t(label.add)}</Button></div>
     {items.length ? <table className={css.capabilityList} aria-label={t(section)}>
       <thead><tr><th scope="col">{t('name')}</th><th scope="col">{t('capabilityStatus')}</th><th scope="col">{t('capabilityActions')}</th></tr></thead>
