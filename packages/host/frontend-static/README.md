@@ -25,6 +25,8 @@ Serve the built Web shell to browsers from its configured distribution directory
 <a id="use-this-package"></a>
 ## Use this package
 
+Index bootstrap data uses the Peer returned by Connection admission, including a plugin-provided account. Static assets remain public; application data is protected by its API routes.
+
 Compose this plugin in a browser-facing host that serves the built Web shell: it claims the webserver's fallback seat and answers every request no named route matches. It needs one config value — where the built frontend's `index.html` lives.
 
 ### Minimal configuration

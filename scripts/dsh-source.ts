@@ -8,6 +8,6 @@ await runCli({
     const { prepareLocalWebPlugins } = await import('../apps/cli/src/local-web-plugins.ts')
     const root = fileURLToPath(new URL('..', import.meta.url))
     const pnpm = process.env.npm_execpath ? pnpmInvocation([]) : { command: 'pnpm', args: [] }
-    await prepareLocalWebPlugins(root, pnpm)
+    await prepareLocalWebPlugins(root, { ...pnpm, env: {} })
   },
 })

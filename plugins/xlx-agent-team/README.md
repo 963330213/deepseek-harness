@@ -24,18 +24,18 @@ This local plugin adds an editable agent team to the Web Plugins page. Each memb
 
 ### Run from a source checkout
 
-On a new machine, copy the checkout with its `plugins/` directories. Use Node 24.9 or newer and run from the repository root:
+On a new machine, copy the checkout with its `plugins/` directories. Use Node 24.9 or newer. Build DSH and the team bundle from the repository root.
 
 ```sh
 pnpm install
-pnpm dev:web
+pnpm run build
+pnpm --dir plugins/xlx-agent-team install --ignore-workspace --config.auto-install-peers=false --frozen-lockfile
+pnpm exec tsdown --cwd plugins/xlx-agent-team --config-loader native
 ```
 
-The source Web launcher prepares missing local bundle builds and installs new bundles from `plugins/` into the `web` profile. Use `pnpm dsh web` once the DSH artifacts are built. If the launcher initializes XLX authentication on a new profile, it prints the local password file for the `admin` account. An existing authentication configuration supplied through `DSH_XLX_AUTH_CONFIG` takes precedence.
+Configure the authorization plugin through the Web profile or `DSH_XLX_AUTH_CONFIG`. Set `DSH_XLX_BOOTSTRAP_PASSWORD` when creating an empty authorization database. Run `pnpm dsh web` to install the local bundles into the Web profile and start the server.
 
 Refresh the Web page and open **Agent team** in the left sidebar to add members. The same editor is also available under **Plugins → Agent team**. Saving persists the roster. A member id starts with a lower-case letter, contains at most 32 letters, digits or hyphens, and cannot be `lead`. Ids cannot be edited after creation. Select **Inherit the lead model** or a model from the configured providers. If another page changes the settings, reopen the editor before saving again.
-
-To build this bundle independently, run `pnpm --dir plugins/xlx-agent-team install --ignore-workspace --config.auto-install-peers=false` followed by `pnpm --dir plugins/xlx-agent-team run build`.
 
 ### Member capabilities
 

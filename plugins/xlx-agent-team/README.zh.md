@@ -24,18 +24,18 @@ kind: "package-bundle"
 
 ### 从源码仓库启动
 
-换电脑时，把源码仓库及其中的 `plugins/` 目录一起复制过去。使用 Node 24.9 及以上版本，在仓库根目录执行：
+换电脑时，把源码仓库及其中的 `plugins/` 目录一起复制过去。使用 Node 24.9 及以上版本，从仓库根目录构建 DSH 和团队插件。
 
 ```sh
 pnpm install
-pnpm dev:web
+pnpm run build
+pnpm --dir plugins/xlx-agent-team install --ignore-workspace --config.auto-install-peers=false --frozen-lockfile
+pnpm exec tsdown --cwd plugins/xlx-agent-team --config-loader native
 ```
 
-源码版 Web 启动会构建缺少产物的本地组合包，并将 `plugins/` 中的新组合包安装到 `web` 配置档案。已有 DSH 构建产物时可以直接运行 `pnpm dsh web`。新配置档案若由启动程序初始化 XLX 登录，终端会显示 `admin` 初始密码文件的位置。通过 `DSH_XLX_AUTH_CONFIG` 提供的登录配置优先生效。
+通过 Web 配置档案或 `DSH_XLX_AUTH_CONFIG` 配置授权插件。首次创建空授权数据库时设置 `DSH_XLX_BOOTSTRAP_PASSWORD`。执行 `pnpm dsh web` 将本地组合包安装到 Web 配置档案并启动服务。
 
 刷新 Web 页面，点击左侧栏的 **智能体团队** 即可新增成员。也可以通过 **插件 → 智能体团队** 打开同一配置界面。保存后配置会持久化。成员标识以小写字母开头，最多 32 个字母、数字或短横线，不能是 `lead`。创建后不能修改标识。模型可以选择“沿用主智能体模型”或已配置提供方中的模型。如果其他页面修改了配置，请重新打开编辑窗口后保存。
-
-单独构建此插件时，先执行 `pnpm --dir plugins/xlx-agent-team install --ignore-workspace --config.auto-install-peers=false`，再执行 `pnpm --dir plugins/xlx-agent-team run build`。
 
 ### 成员专属能力
 

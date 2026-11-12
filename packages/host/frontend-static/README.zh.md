@@ -25,6 +25,8 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
+首页启动数据使用 Connection 准入返回的 Peer，包括插件提供的账号身份。静态资产仍可公开访问；应用数据由各 API 路由保护。
+
 在服务已构建 Web 壳的浏览器宿主中组合本插件：它占据 webserver 的回退席位，并应答所有未被具名路由命中的请求。它只需要一个配置值——已构建前端的 `index.html` 位于何处。
 
 ### 最小配置

@@ -63,6 +63,8 @@ The published tarball carries the bundled runtime under `lib/`, the TypeScript u
 
 Production runs require built package and frontend artifacts. From the repository root, run `pnpm run build` separately, then use `pnpm dsh <args...>` to run the TypeScript entry and forward every argument; the [source-execution reference](reference/README.md#source-execution) owns the module-resolution contract.
 
+Source Web launches scan immediate subdirectories of `plugins/` for packages declaring `dsh.bundle.patch` and install them together into the Web profile through the normal plugin manager. Existing disabled bundle selections and version compatibility checks remain in effect; failed installation stops startup. Other profiles, help requests and `--from-default-profile` launches skip this preparation. Build local plugins with their own build commands before launching; discovery does not build their artifacts.
+
 The `@deepseek-ai/dsh/profile-boot` export provides the shared profile lifecycle to the Desktop host. A resolved application profile supplies its own installation anchor for runtime package resolution while retaining the Harness home patch, proxy environment, telemetry switch, patch reload, and bounded shutdown.
 
 Packaged installations call the same `runCli()` entry with their package-manager executable. The Desktop carrier also enables plugin operations for its initialized profile; npm launches omit these options. Installation-owned package environments apply only to plugin package operations; the invoking directory, ordinary profile selection, and agent-shell PATH retain their CLI meanings.

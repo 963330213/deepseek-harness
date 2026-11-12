@@ -63,6 +63,8 @@ profile 目录包含一个 `package.json`，其中记录树外插件依赖，以
 
 生产运行需要已构建的包与前端产物。请在仓库根目录单独运行 `pnpm run build`，然后使用 `pnpm dsh <args...>` 运行 TypeScript 入口并转发所有参数；模块解析约定以[源码执行参考](reference/README.zh.md#source-execution)为准。
 
+源码 Web 启动会扫描 `plugins/` 的直接子目录，将声明了 `dsh.bundle.patch` 的包通过现有插件管理器一次性安装到 Web profile。已有的组合包禁用选择和版本兼容检查继续生效；安装失败时停止启动。其他 profile、帮助请求和 `--from-default-profile` 启动不执行此准备。启动前须使用本地插件自己的构建命令生成产物；扫描过程不构建插件产物。
+
 `@deepseek-ai/dsh/profile-boot` 导出向 Desktop Host 提供共享 profile 生命周期。已解析的应用 profile 为运行时包解析指定自己的安装锚点，同时沿用 Harness home patch、代理环境、遥测开关、patch 热重载和有界关闭。
 
 打包安装通过同一个 `runCli()` 入口传入包管理器可执行文件。Desktop 载体还会启用其已初始化 profile 的插件操作；npm 启动不传入这些选项。安装包提供的包管理环境仅用于插件包操作；调用目录、普通 profile 选择与 agent shell 的 PATH 保留 CLI 语义。
