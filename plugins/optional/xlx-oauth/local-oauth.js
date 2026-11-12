@@ -52,6 +52,10 @@ export function createLocalOAuth(resource, accounts, clients) {
   const tasks = new Map()
   let closed = false
 
+  const pendingAttempt = id => {
+    const attempt = pending.get(id)
+    if (!closed && attempt && attempt.expiresAt > Date.now()) return attempt
+  }
   const currentAccount = user => accounts.enabledHarnessAccount(user.username)?.id === user.id
   const model = {
     getClient(id, secret) {
@@ -135,8 +139,8 @@ export function createLocalOAuth(resource, accounts, clients) {
     }
 
     const id = query.request
-    const attempt = pending.get(id)
-    if (!attempt || attempt.expiresAt <= Date.now()) {
+    const attempt = pendingAttempt(id)
+    if (!attempt) {
       return showConsent(res, 400, '授权请求已失效，请回到 MCP 客户端重新连接。')
     }
     const login = accounts.browserAccess(req)
@@ -223,6 +227,10 @@ export function createLocalOAuth(resource, accounts, clients) {
   }
 
   return {
+    acceptsLogin(audience, requestId) {
+      const attempt = audience === resource.origin && pendingAttempt(requestId)
+      return Boolean(attempt && !attempt.loginId)
+    },
     authorizeToken(value) {
       const token = !closed && tokens.get(hash(value))
       if (token && token.expiresAt > Date.now()) return token

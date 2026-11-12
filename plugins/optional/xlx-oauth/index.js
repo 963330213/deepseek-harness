@@ -9,7 +9,7 @@ import { createSettingsHttp, SETTINGS_PATH } from './settings-http.js'
 export const name = 'xlx-oauth'
 export const inject = ['xlxProjectAccounts', 'webServer', 'connection', 'remoteAccess', 'typertGateway', 'credentials']
 
-/** Mount OAuth without changing the project's browser authentication or account roles.
+/** Register MCP consent and validate OAuth login continuations for project accounts.
  * @param {object} ctx Plugin-owned Cordis context.
  * @param {{resource?: string}} options Optional initial MCP resource URL.
  */
@@ -34,12 +34,16 @@ export async function apply(ctx, options = {}) {
     return {
       ...mcp,
       issuer: issuer.handle,
+      acceptsLogin: issuer.acceptsLogin,
       async close() {
         await Promise.all([mcp.close(), issuer.close()])
       },
     }
   })
   ctx.effect(() => () => settings.close(), 'xlx-oauth: MCP request lifetimes')
+  ctx.effect(() => accounts.registerOAuthLoginValidator(
+    (audience, requestId) => settings.current()?.acceptsLogin(audience, requestId) ?? false,
+  ), 'xlx-oauth: project login continuations')
   ctx.effect(() => ctx.remoteAccess.registerPolicy('xlx-mcp', {
     bindings(principal) {
       const user = accounts.enabledHarnessAccount(principal.username)

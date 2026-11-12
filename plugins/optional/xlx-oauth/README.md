@@ -24,7 +24,7 @@ pnpm dsh plugin --profile web add ./plugins/optional/xlx-oauth
 
 ## 访问范围
 
-客户端使用浏览器登录的 DSH 账号访问其工作区和会话。授权仅允许 `dsh_create_session`、`dsh_list_sessions`、`dsh_send_message` 和 `dsh_read_replies`，管理员账号的 MCP 访问也受会话归属限制。账号停用或撤销使用权限后，MCP 拒绝请求。
+账号至少需要一个拥有「使用 MCP」权限的角色。普通用户从 MCP 客户端发起授权，并通过有效 OAuth 请求的登录页验证身份。授权仅允许 `dsh_create_session`、`dsh_list_sessions`、`dsh_send_message` 和 `dsh_read_replies`，管理员账号的 MCP 访问也受会话归属限制。账号停用或撤销使用权限后，MCP 拒绝请求。
 
 访问令牌有效期为一小时。重启 DSH Web、关闭 MCP 或更改资源地址会让当前令牌失效，客户端需要重新授权。动态注册的客户端 ID 按资源地址保存在项目数据库旁的 SQLite 文件中。
 

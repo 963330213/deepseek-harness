@@ -8,6 +8,7 @@ const scryptAsync = promisify(scrypt)
 const derive = (password, salt) => scryptAsync(password, salt, 64, { N: 32768, r: 8, p: 3, maxmem: 40 * 1024 * 1024 })
 const dummySalt = randomBytes(16)
 const dummyHash = randomBytes(64)
+const ADMIN_ROLE = 'admin'
 const schema = `
   CREATE TABLE users (
     id INTEGER PRIMARY KEY,
@@ -42,8 +43,8 @@ const account = `
   SELECT u.id, u.username, u.enabled, u.password_hash, u.password_salt,
     EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.name = ur.role_name
       WHERE ur.user_id = u.id AND r.use_harness = 1) AS useHarness,
-    EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.name = ur.role_name
-      WHERE ur.user_id = u.id AND r.manage_accounts = 1) AS manageAccounts
+    EXISTS (SELECT 1 FROM user_roles ur
+      WHERE ur.user_id = u.id AND ur.role_name = ?) AS manageAccounts
   FROM users u
 `
 
@@ -106,11 +107,11 @@ export async function openAuthStore(config) {
       db
         .prepare(
           `
-      SELECT 1 FROM users u JOIN user_roles ur ON ur.user_id = u.id JOIN roles r ON r.name = ur.role_name
-      WHERE u.enabled = 1 AND r.manage_accounts = 1 LIMIT 1
+      SELECT 1 FROM users u JOIN user_roles ur ON ur.user_id = u.id
+      WHERE u.enabled = 1 AND ur.role_name = ? LIMIT 1
     `,
         )
-        .get(),
+        .get(ADMIN_ROLE),
     )
   }
 
@@ -134,10 +135,10 @@ export async function openAuthStore(config) {
           .prepare('INSERT INTO users (username, password_hash, password_salt, enabled) VALUES (?, ?, ?, 1)')
           .run(config.bootstrapUser, hash, salt)
         db.prepare('INSERT INTO roles (name, use_harness, manage_accounts) VALUES (?, 1, 1), (?, 1, 0)').run(
-          'admin',
+          ADMIN_ROLE,
           'member',
         )
-        db.prepare('INSERT INTO user_roles (user_id, role_name) VALUES (?, ?)').run(lastInsertRowid, 'admin')
+        db.prepare('INSERT INTO user_roles (user_id, role_name) VALUES (?, ?)').run(lastInsertRowid, ADMIN_ROLE)
       })
     }
     if (!requireAdmin()) throw new Error('xlx-auth: no enabled administrator exists')
@@ -159,7 +160,7 @@ export async function openAuthStore(config) {
 
   return {
     enabledHarnessAccount(username) {
-      return enabledHarnessAccount.get(username)
+      return enabledHarnessAccount.get(ADMIN_ROLE, username)
     },
     workspace(userId) {
       return db.prepare('SELECT workspace_id AS id, directory FROM user_workspaces WHERE user_id = ?').get(userId)
@@ -186,9 +187,9 @@ export async function openAuthStore(config) {
         .map((row) => row.session_id)
     },
     async authenticate(username, password) {
-      const candidate = find.get(username)
+      const candidate = find.get(ADMIN_ROLE, username)
       const result = await derive(password, candidate?.password_salt ?? dummySalt, 64)
-      const latest = find.get(username)
+      const latest = find.get(ADMIN_ROLE, username)
       if (
         !timingSafeEqual(result, candidate?.password_hash ?? dummyHash) ||
         !latest?.enabled ||
@@ -217,7 +218,7 @@ export async function openAuthStore(config) {
     lookup(token, audience) {
       if (typeof token !== 'string' || !/^[\w-]{43}$/.test(token)) return
       const hash = hashToken(token)
-      const user = byLogin.get(hash, audience, Date.now())
+      const user = byLogin.get(ADMIN_ROLE, hash, audience, Date.now())
       if (user?.enabled)
         return {
           id: user.id,
@@ -249,7 +250,7 @@ export async function openAuthStore(config) {
       }
       const where = filters.join(' AND ')
       const total = db.prepare(`SELECT count(*) AS total FROM ${table} WHERE ${where}`).get(...values).total
-      const columns = users ? 'id, username, enabled' : 'name, use_harness, manage_accounts'
+      const columns = users ? 'id, username, enabled' : 'name, use_harness'
       const rows = db
         .prepare(`SELECT ${columns} FROM ${table} WHERE ${where} AND ${name} > ? ORDER BY ${name} LIMIT ?`)
         .all(...values, after, limit + 1)
@@ -272,14 +273,14 @@ export async function openAuthStore(config) {
         items: visible.map((row) =>
           users
             ? { username: row.username, enabled: Boolean(row.enabled), roles: namesByUser.get(row.id) ?? [] }
-            : { name: row.name, useHarness: Boolean(row.use_harness), manageAccounts: Boolean(row.manage_accounts) },
+            : { name: row.name, useHarness: Boolean(row.use_harness), manageAccounts: row.name === ADMIN_ROLE },
         ),
         total,
         next: more ? visible.at(-1)[name] : null,
       }
     },
     list() {
-      const roles = db.prepare('SELECT name, use_harness, manage_accounts FROM roles ORDER BY name').all()
+      const roles = db.prepare('SELECT name, use_harness FROM roles ORDER BY name').all()
       const users = db.prepare('SELECT id, username, enabled FROM users ORDER BY username').all()
       const grants = db.prepare('SELECT user_id, role_name FROM user_roles ORDER BY role_name').all()
       const namesByUser = new Map()
@@ -292,7 +293,7 @@ export async function openAuthStore(config) {
         roles: roles.map((r) => ({
           name: r.name,
           useHarness: Boolean(r.use_harness),
-          manageAccounts: Boolean(r.manage_accounts),
+          manageAccounts: r.name === ADMIN_ROLE,
         })),
         users: users.map((u) => ({
           username: u.username,
@@ -306,14 +307,14 @@ export async function openAuthStore(config) {
         db.prepare(
           `INSERT INTO roles (name, use_harness, manage_accounts) VALUES (?, ?, ?)
           ON CONFLICT (name) DO UPDATE SET use_harness = excluded.use_harness, manage_accounts = excluded.manage_accounts`,
-        ).run(name, Number(role.useHarness), Number(role.manageAccounts))
+        ).run(name, Number(role.useHarness), Number(name === ADMIN_ROLE))
         if (!requireAdmin()) throw new CatalogError('last-administrator')
         db.prepare('DELETE FROM logins WHERE user_id IN (SELECT user_id FROM user_roles WHERE role_name = ?)').run(name)
       })
     },
     saveUser(username, user, credential) {
       return transaction(() => {
-        const existing = find.get(username)
+        const existing = find.get(ADMIN_ROLE, username)
         if (!existing && !credential) throw new CatalogError('password-required')
         const roleExists = db.prepare('SELECT 1 FROM roles WHERE name = ?')
         if (user.roles.some((role) => !roleExists.get(role))) throw new CatalogError('unknown-role')

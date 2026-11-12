@@ -7,7 +7,7 @@ const MAX_BODY_BYTES = 8192
 const loginPage = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>登录 DSH</title>
 <style>body{font:14px system-ui;margin:0;background:#f6f7f8;color:#15171a;display:grid;min-height:100vh;place-items:center}main{background:white;border:1px solid #ddd;border-radius:20px;padding:32px;width:min(320px,75vw)}h1{font-size:22px;font-weight:500}label{display:grid;gap:8px;margin:20px 0}input,button{font:inherit;padding:12px;border:1px solid #ccc;border-radius:10px}button{width:100%;background:#17191c;color:white;cursor:pointer}.hint{color:#626872;line-height:1.6}a{color:inherit}</style></head>
-<body><main><h1>登录 DSH</h1><p class="hint">使用项目管理员分配的账号登录</p>
+<body><main><h1>登录 DSH</h1><p class="hint"><!--login-hint--></p>
 <!--login-error--><form method="post" action="/_xlx/login<!--login-query-->"><label>用户名<input name="username" autocomplete="username" required maxlength="63"></label>
 <label>密码<input name="password" type="password" autocomplete="current-password" required maxlength="256"></label><button type="submit">登录</button></form></main></body></html>`
 
@@ -31,20 +31,18 @@ class RequestError extends Error {
     this.status = status
   }
 }
-function oauthContinuation(url) {
-  const next = url.searchParams.get('continue') ?? ''
-  return /^\/_xlx_oauth\/authorize\?request=[\w-]{43}$/.test(next) ? next : ''
-}
 function showLogin(res, status = 200, code, next = '') {
   const messages = {
     'invalid-login': '用户名或密码不正确，或账号未获授权',
+    'mcp-login-only': '此账号仅可通过 MCP 客户端发起授权',
     forbidden: '登录请求来源无效，请刷新此页面后重试',
     'rate-limit': '登录尝试过多，请稍后重试',
     busy: '登录服务繁忙，请稍后重试',
   }
   const error = code === undefined ? '' : `<p role="alert">${messages[code] ?? '登录暂时失败，请稍后重试'}</p>`
   const query = next ? '?' + new URLSearchParams({ continue: next }) : ''
-  send(res, status, loginPage.replace('<!--login-error-->', error).replace('<!--login-query-->', query), {
+  const hint = next ? '登录后确认 MCP 客户端的授权请求' : '使用 admin 角色账号登录后台'
+  send(res, status, loginPage.replace('<!--login-hint-->', hint).replace('<!--login-error-->', error).replace('<!--login-query-->', query), {
     'content-type': 'text/html; charset=utf-8',
     'content-security-policy':
       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
@@ -68,10 +66,10 @@ async function readBody(req, media) {
 }
 
 /** Create routes and account lookup without opening another listener.
- * @param {object} options Database, workspace provisioning and revocation owners.
+ * @param {object} options Account store, revocation and active OAuth login validation.
  * @returns {object} HTTP handler, identity reader and lifecycle cleanup.
  */
-export function createAccountHttp({ store, provision, revoke, secure }) {
+export function createAccountHttp({ store, revoke, secure, acceptsOAuthLogin }) {
   const cookieName = secure ? '__Host-xlx_dsh_session' : 'xlx_dsh_session'
   const cookie = (token, age) =>
     `${cookieName}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${age}${secure ? '; Secure' : ''}`
@@ -79,8 +77,14 @@ export function createAccountHttp({ store, provision, revoke, secure }) {
   let passwordOperations = 0
   let closed = false
   const tasks = new Set()
+  const audienceOf = request => `${secure ? 'https' : 'http'}://${header(request, 'host') ?? new URL(request.url).host}`
+  const oauthContinuation = (url, audience) => {
+    const next = url.searchParams.get('continue') ?? ''
+    const requestId = /^\/_xlx_oauth\/authorize\?request=([\w-]{43})$/.exec(next)?.[1]
+    return requestId && acceptsOAuthLogin(audience, requestId) ? next : ''
+  }
   const identity = (request) => {
-    const audience = `${secure ? 'https' : 'http'}://${header(request, 'host') ?? new URL(request.url).host}`
+    const audience = audienceOf(request)
     const matches = (header(request, 'cookie') ?? '')
       .split(';')
       .map((v) => v.trim())
@@ -109,7 +113,7 @@ export function createAccountHttp({ store, provision, revoke, secure }) {
       throw new RequestError(403, 'forbidden')
     }
     if (url.pathname === '/_xlx/login' && req.method === 'GET') {
-      showLogin(res, 200, undefined, oauthContinuation(url))
+      showLogin(res, 200, undefined, oauthContinuation(url, audience))
       return
     }
     if (url.pathname === '/_xlx/login' && req.method === 'POST') {
@@ -123,11 +127,12 @@ export function createAccountHttp({ store, provision, revoke, secure }) {
       if (!isKey(body.username) || !validPassword(body.password)) throw new RequestError(401, 'invalid-login')
       const account = await derive(() => store.authenticate(body.username, body.password))
       if (!account || (!account.useHarness && !account.manageAccounts)) throw new RequestError(401, 'invalid-login')
-      await provision(account)
+      const next = oauthContinuation(url, audience)
+      if (!account.manageAccounts && !next) throw new RequestError(403, 'mcp-login-only')
       if (closed) throw new RequestError(503, 'unavailable')
       const nextToken = store.createLogin(account.id, audience, Date.now() + LOGIN_SECONDS * 1000)
       await revoke()
-      send(res, 303, '', { location: oauthContinuation(url) || '/', 'set-cookie': cookie(nextToken, LOGIN_SECONDS) })
+      send(res, 303, '', { location: next || '/', 'set-cookie': cookie(nextToken, LOGIN_SECONDS) })
       return
     }
     if (!user) throw new RequestError(401, 'login-required')
@@ -137,11 +142,11 @@ export function createAccountHttp({ store, provision, revoke, secure }) {
       send(res, 200, { ok: true }, { 'set-cookie': cookie('', 0) })
       return
     }
+    if (!user.manageAccounts) throw new RequestError(403, 'forbidden')
     if (url.pathname === '/_xlx/me' && req.method === 'GET') {
       send(res, 200, { username: user.username, manageAccounts: user.manageAccounts })
       return
     }
-    if (!user.manageAccounts) throw new RequestError(403, 'forbidden')
     if (url.pathname === '/_xlx/summary' && req.method === 'GET') {
       send(res, 200, { ...store.summary(), currentUser: user.username })
       return
@@ -204,7 +209,7 @@ export function createAccountHttp({ store, provision, revoke, secure }) {
         const known = error instanceof RequestError || error instanceof CatalogError
         const status = error instanceof RequestError ? error.status : known ? 400 : 500
         if (req.method === 'POST' && req.url?.split('?')[0] === '/_xlx/login') {
-          const next = oauthContinuation(new URL(req.url, 'http://localhost'))
+          const next = oauthContinuation(new URL(req.url, 'http://localhost'), audienceOf(req))
           showLogin(res, status, known ? error.message : 'operation-failed', next)
           return
         }

@@ -1,0 +1,16 @@
+# Bilingual-pair consistency record for guide.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/upgrade-guide/v0.2.2-rc.2/xlx-auth-mcp-only-members/guide.md
+/:
+  en: efef186f5dc8c008
+  zh: 0144f4ef910094f0
+/xlx-auth-web-access-requires-the-admin-role:
+  en: 6f487b5bd6345ede
+  zh: fc50e778bd88f071
+/xlx-auth-web-access-requires-the-admin-role/change:
+  en: 70f2b63e413326ab
+  zh: e5de092dd7ba4687
+/xlx-auth-web-access-requires-the-admin-role/migration:
+  en: b491ee074583196d
+  zh: 01935e903b4c888f

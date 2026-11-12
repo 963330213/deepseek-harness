@@ -42,37 +42,30 @@ export async function apply(ctx, options) {
     ctx.remoteAccess.invalidate()
     const retired = []
     for (const [token, record] of peers) {
-      if (store.lookup(token, record.audience)) continue
+      if (store.lookup(token, record.audience)?.manageAccounts) continue
       peers.delete(token)
       clearTimeout(record.timer)
       retired.push(record.peer.dispose())
     }
     await Promise.all(retired)
   }
+  let oauthLoginValidator
   const http = createAccountHttp({
     store, revoke, secure: ctx.webServer.protocol === 'https:',
-    provision: user => user.manageAccounts ? undefined : provisionWorkspace(user),
+    acceptsOAuthLogin: (audience, requestId) => oauthLoginValidator?.(audience, requestId) ?? false,
   })
   ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path: '/_xlx', handler: http.handle }), 'xlx-auth: account routes')
-  ctx.effect(() => ctx.remoteAccess.registerPolicy('xlx-user', {
-    bindings: principal => {
-      const record = peers.get(principal.token)
-      const user = record && store.lookup(principal.token, record.audience)
-      return user?.useHarness ? accountBindings(store, user) : []
-    },
-  }), 'xlx-auth: user resource access')
   ctx.on('session/created', session => {
     store.recordSession(session.header)
     ctx.remoteAccess.invalidate()
   })
   const admit = request => {
     const { token, audience, user } = http.identity(request)
-    if (!user || (!user.useHarness && !user.manageAccounts)) return { rejection: 401 }
+    if (!user) return { rejection: 401 }
+    if (!user.manageAccounts) return { rejection: 403 }
     let record = peers.get(token)
     if (!record) {
-      const peer = ctx.connection.createPeer({
-        principal: user.manageAccounts ? { kind: 'owner' } : { kind: 'xlx-user', userId: user.id, token },
-      })
+      const peer = ctx.connection.createPeer({ principal: { kind: 'owner' } })
       const timer = setTimeout(() => {
         peers.delete(token)
         void peer.dispose().catch(error => ctx.logger.error('xlx-auth: account connection cleanup failed', error))
@@ -86,7 +79,7 @@ export async function apply(ctx, options) {
   ctx.effect(() => ctx.connection.registerBrowserAuthentication({
     admit,
     authorizeIndex(request, response) {
-      if (!('rejection' in admit(request))) return true
+      if (http.identity(request).user?.manageAccounts) return true
       response.writeHead(303, { location: '/_xlx/login', 'cache-control': 'no-store' })
       response.end()
       return false
@@ -102,6 +95,11 @@ export async function apply(ctx, options) {
   // Dependents release their requests before the account database closes.
   ctx.provide('xlxProjectAccounts', {
     database: config.database,
+    registerOAuthLoginValidator(validate) {
+      if (oauthLoginValidator) throw new Error('xlx-auth: OAuth login validator is already registered')
+      oauthLoginValidator = validate
+      return () => { oauthLoginValidator = undefined }
+    },
     browserAccess(request) {
       const { audience, token, user } = http.identity(request)
       return {
