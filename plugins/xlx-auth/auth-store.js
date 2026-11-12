@@ -147,6 +147,10 @@ export async function openAuthStore(config) {
   }
 
   const find = db.prepare(account + ' WHERE u.username = ?')
+  const enabledHarnessAccount = db.prepare(`
+    SELECT a.id, a.username FROM (${account}) a
+    WHERE a.username = ? AND a.enabled = 1 AND a.useHarness = 1
+  `)
   const byLogin = db.prepare(`
     SELECT l.expires_at, a.id, a.username, a.enabled, a.useHarness, a.manageAccounts
     FROM logins l JOIN (${account}) a ON a.id = l.user_id
@@ -154,6 +158,9 @@ export async function openAuthStore(config) {
   `)
 
   return {
+    enabledHarnessAccount(username) {
+      return enabledHarnessAccount.get(username)
+    },
     workspace(userId) {
       return db.prepare('SELECT workspace_id AS id, directory FROM user_workspaces WHERE user_id = ?').get(userId)
     },

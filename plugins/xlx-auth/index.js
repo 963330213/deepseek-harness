@@ -1,5 +1,6 @@
 /** Project account authentication and settings on the existing DSH listener. */
 import { readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
 import { dirname, isAbsolute, join } from 'node:path'
 import { openAuthStore } from './auth-store.js'
@@ -24,8 +25,7 @@ export async function apply(ctx, options) {
   ctx.effect(() => () => store.close(), 'xlx-auth: authorization database')
   const peers = new Map()
   const provisioning = new Map()
-  const provision = async user => {
-    if (user.manageAccounts) return
+  const provisionWorkspace = async user => {
     if (provisioning.has(user.id)) return provisioning.get(user.id)
     const work = (async () => {
       const existing = store.workspace(user.id)
@@ -49,7 +49,10 @@ export async function apply(ctx, options) {
     }
     await Promise.all(retired)
   }
-  const http = createAccountHttp({ store, provision, revoke, secure: ctx.webServer.protocol === 'https:' })
+  const http = createAccountHttp({
+    store, revoke, secure: ctx.webServer.protocol === 'https:',
+    provision: user => user.manageAccounts ? undefined : provisionWorkspace(user),
+  })
   ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path: '/_xlx', handler: http.handle }), 'xlx-auth: account routes')
   ctx.effect(() => ctx.remoteAccess.registerPolicy('xlx-user', {
     bindings: principal => {
@@ -96,4 +99,24 @@ export async function apply(ctx, options) {
     await Promise.all([...peers.values()].map(record => record.peer.dispose()))
     peers.clear()
   }, 'xlx-auth: login lifetimes')
+  // Dependents release their requests before the account database closes.
+  ctx.provide('xlxProjectAccounts', {
+    database: config.database,
+    browserAccess(request) {
+      const { audience, token, user } = http.identity(request)
+      return {
+        audience,
+        signedIn: Boolean(user),
+        manageAccounts: Boolean(user?.manageAccounts),
+        ...(user?.useHarness && {
+          account: { id: user.id, username: user.username },
+          loginId: createHash('sha256').update(token).digest('base64url'),
+        }),
+      }
+    },
+    enabledHarnessAccount: username => store.enabledHarnessAccount(username),
+    workspace: id => store.workspace(id),
+    bindings: user => accountBindings(store, user),
+    provisionWorkspace,
+  })
 }

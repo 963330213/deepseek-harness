@@ -8,7 +8,7 @@ const loginPage = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>登录 DSH</title>
 <style>body{font:14px system-ui;margin:0;background:#f6f7f8;color:#15171a;display:grid;min-height:100vh;place-items:center}main{background:white;border:1px solid #ddd;border-radius:20px;padding:32px;width:min(320px,75vw)}h1{font-size:22px;font-weight:500}label{display:grid;gap:8px;margin:20px 0}input,button{font:inherit;padding:12px;border:1px solid #ccc;border-radius:10px}button{width:100%;background:#17191c;color:white;cursor:pointer}.hint{color:#626872;line-height:1.6}a{color:inherit}</style></head>
 <body><main><h1>登录 DSH</h1><p class="hint">使用项目管理员分配的账号登录</p>
-<!--login-error--><form method="post" action="/_xlx/login"><label>用户名<input name="username" autocomplete="username" required maxlength="63"></label>
+<!--login-error--><form method="post" action="/_xlx/login<!--login-query-->"><label>用户名<input name="username" autocomplete="username" required maxlength="63"></label>
 <label>密码<input name="password" type="password" autocomplete="current-password" required maxlength="256"></label><button type="submit">登录</button></form></main></body></html>`
 
 function header(request, name) {
@@ -31,7 +31,11 @@ class RequestError extends Error {
     this.status = status
   }
 }
-function showLogin(res, status = 200, code) {
+function oauthContinuation(url) {
+  const next = url.searchParams.get('continue') ?? ''
+  return /^\/_xlx_oauth\/authorize\?request=[\w-]{43}$/.test(next) ? next : ''
+}
+function showLogin(res, status = 200, code, next = '') {
   const messages = {
     'invalid-login': '用户名或密码不正确，或账号未获授权',
     forbidden: '登录请求来源无效，请刷新此页面后重试',
@@ -39,7 +43,8 @@ function showLogin(res, status = 200, code) {
     busy: '登录服务繁忙，请稍后重试',
   }
   const error = code === undefined ? '' : `<p role="alert">${messages[code] ?? '登录暂时失败，请稍后重试'}</p>`
-  send(res, status, loginPage.replace('<!--login-error-->', error), {
+  const query = next ? '?' + new URLSearchParams({ continue: next }) : ''
+  send(res, status, loginPage.replace('<!--login-error-->', error).replace('<!--login-query-->', query), {
     'content-type': 'text/html; charset=utf-8',
     'content-security-policy':
       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
@@ -104,7 +109,7 @@ export function createAccountHttp({ store, provision, revoke, secure }) {
       throw new RequestError(403, 'forbidden')
     }
     if (url.pathname === '/_xlx/login' && req.method === 'GET') {
-      showLogin(res)
+      showLogin(res, 200, undefined, oauthContinuation(url))
       return
     }
     if (url.pathname === '/_xlx/login' && req.method === 'POST') {
@@ -122,7 +127,7 @@ export function createAccountHttp({ store, provision, revoke, secure }) {
       if (closed) throw new RequestError(503, 'unavailable')
       const nextToken = store.createLogin(account.id, audience, Date.now() + LOGIN_SECONDS * 1000)
       await revoke()
-      send(res, 303, '', { location: '/', 'set-cookie': cookie(nextToken, LOGIN_SECONDS) })
+      send(res, 303, '', { location: oauthContinuation(url) || '/', 'set-cookie': cookie(nextToken, LOGIN_SECONDS) })
       return
     }
     if (!user) throw new RequestError(401, 'login-required')
@@ -199,7 +204,8 @@ export function createAccountHttp({ store, provision, revoke, secure }) {
         const known = error instanceof RequestError || error instanceof CatalogError
         const status = error instanceof RequestError ? error.status : known ? 400 : 500
         if (req.method === 'POST' && req.url?.split('?')[0] === '/_xlx/login') {
-          showLogin(res, status, known ? error.message : 'operation-failed')
+          const next = oauthContinuation(new URL(req.url, 'http://localhost'))
+          showLogin(res, status, known ? error.message : 'operation-failed', next)
           return
         }
         send(res, status, { error: known ? error.message : 'operation-failed' })

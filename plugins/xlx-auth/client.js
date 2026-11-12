@@ -14,6 +14,7 @@ window.__ModuleLoader__.load({
     const h = React.createElement
     const NS = 'xlxAuth.permissions'
     const PANEL_ID = 'user-permissions'
+    const SECTIONS = 'xlx-auth.permissions.sections'
     const zh = {
       nav: '用户权限',
       description: '管理当前项目的用户、角色和访问权限',
@@ -616,7 +617,7 @@ window.__ModuleLoader__.load({
         ),
       )
     }
-    function PermissionsContent({ t, useSnapshot, refresh, loadList, loadRoles, clearFeedback, save, logout }) {
+    function PermissionsContent({ t, useSnapshot, refresh, loadList, loadRoles, clearFeedback, save, logout, renderSlot }) {
       const state = useSnapshot((value) => value)
       const [dialog, setDialog] = React.useState(null)
       const open = (kind) => {
@@ -661,6 +662,7 @@ window.__ModuleLoader__.load({
               ),
             )
           : null,
+        state.summary ? renderSlot(SECTIONS, {}) : null,
         dialog
           ? h(ListDialog, {
               key: dialog,
@@ -818,6 +820,7 @@ window.__ModuleLoader__.load({
               name: 'main',
               key: PANEL_ID,
               locale: NS,
+              children: { [SECTIONS]: { kind: 'list', scope: 'root' } },
               inject: () => ({ hooks: { snapshot }, refresh, loadList, loadRoles, clearFeedback, save, logout }),
             },
             (props) => h('div', { className: 'xlx-permissions-panel' }, h(PermissionsContent, props)),
