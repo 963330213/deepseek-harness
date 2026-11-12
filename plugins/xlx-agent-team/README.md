@@ -37,6 +37,10 @@ Configure the authorization plugin through the Web profile or `DSH_XLX_AUTH_CONF
 
 Refresh the Web page and open **Agent team** in the left sidebar to add members. The same editor is also available under **Plugins → Agent team**. Saving persists the roster. A member id starts with a lower-case letter, contains at most 32 letters, digits or hyphens, and cannot be `lead`. Ids cannot be edited after creation. Select **Inherit the lead model** or a model from the configured providers. If another page changes the settings, reopen the editor before saving again.
 
+Open **Skills/MCP** in the sidebar and switch between the **Skills** and **MCP** tabs to see shared resources and resources bound to team members. Add shared MCP servers through the profile's MCP manager and import shared skills as ZIP files. Enabled shared resources are available to the lead and to members whose presets load those capabilities. Manage a private binding from the member editor. Use private bindings for credentials, write access and specialist workflows that only one role needs.
+
+Use the switch or delete button in either list to disable or remove a configured shared resource or a member binding. Changes to a member binding apply to new delegations. Other plugins manage the resources they supply.
+
 ### Member capabilities
 
 Open a member's editor to configure **Private MCP**, **Private skills**, and **Databases**. All three tabs show lists with status switches and edit/remove actions; **Add** or **Edit** opens a separate form. **Confirm** stages the change in the list; **Save** in the member editor persists it. Cancelling a form discards its changes. Each member owns separate additions; they are not registered on the lead or other members. The normal tools and shared skills provided by the inherited agent preset remain available.

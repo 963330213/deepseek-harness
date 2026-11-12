@@ -27,6 +27,7 @@ type EditorProps<T> = PropsLocale<'settings.xlxAgentTeam'> & {
   disabled: boolean
   accept: (value: T) => void
   close: () => void
+  saveError?: string | undefined
 }
 
 /**
@@ -46,7 +47,7 @@ export const CapabilityField = ({ label, value, change, disabled, multiline = fa
  * @param props - Initial server, other servers and draft acceptance callback.
  * @returns The add or edit dialog; cancellation leaves the member unchanged.
  */
-export const McpEditor = ({ value, peers, disabled, accept, close, t }: EditorProps<MemberMcp>) => {
+export const McpEditor = ({ value, peers, disabled, accept, close, saveError, t }: EditorProps<MemberMcp>) => {
   const [draft, setDraft] = useState<MemberMcp>(() => value ?? { name: '', enabled: true, transport: 'stdio', command: '', args: [], env: '{}', cwd: '', url: '', headers: '{}', timeoutMs: 60000 })
   const [stdioJson, setStdioJson] = useState(() => {
     let env: string | Record<string, string>
@@ -92,7 +93,7 @@ export const McpEditor = ({ value, peers, disabled, accept, close, t }: EditorPr
         <CapabilityField label={t('timeout')} type="number" value={String(draft.timeoutMs)} disabled={disabled} change={text => update({ timeoutMs: Number(text) })} />
         <div className={css.switchField}><span>{t('enableCapability')}</span><Switch checked={draft.enabled} label={t('enableCapability')} disabled={disabled} onChange={enabled => update({ enabled })} /></div>
       </div>
-      {error ? <p role="alert" className={css.error}>{t(error)}</p> : null}
+      {error || saveError ? <p role="alert" className={css.error}>{error ? t(error) : saveError}</p> : null}
     </div>
   </Modal>
 }
@@ -102,7 +103,7 @@ export const McpEditor = ({ value, peers, disabled, accept, close, t }: EditorPr
  * @param props - Initial bundle, other skills, import lock and acceptance callback.
  * @returns A skill editor whose changes remain local until confirmed.
  */
-export const SkillEditor = ({ value, peers, disabled, accept, close, importingChanged, t }: EditorProps<MemberSkill> & { importingChanged: (busy: boolean) => void }) => {
+export const SkillEditor = ({ value, peers, disabled, accept, close, saveError, importingChanged, t }: EditorProps<MemberSkill> & { importingChanged?: (busy: boolean) => void }) => {
   const [draft, setDraft] = useState(value)
   const [enabled, setEnabled] = useState(value?.enabled ?? true)
   const [error, setError] = useState(false)
@@ -112,7 +113,7 @@ export const SkillEditor = ({ value, peers, disabled, accept, close, importingCh
   const upload = async (file: File) => {
     if (!/\.zip$/i.test(file.name) || file.size > SKILL_BYTES) { setError(true); return }
     setImporting(true)
-    importingChanged(true)
+    importingChanged?.(true)
     try {
       const skill = importSkill(file.name, new Uint8Array(await file.arrayBuffer()))
       setDraft(skill)
@@ -120,7 +121,7 @@ export const SkillEditor = ({ value, peers, disabled, accept, close, importingCh
     } catch (importError) {
       // Failed imports leave the current bundle available for correction.
       setError(true)
-    } finally { setImporting(false); importingChanged(false) }
+    } finally { setImporting(false); importingChanged?.(false) }
   }
   const submit = () => {
     if (!draft) return
@@ -156,7 +157,7 @@ export const SkillEditor = ({ value, peers, disabled, accept, close, importingCh
       </section> : null}
       <div className={css.toggle}><span>{t('enableCapability')}</span><Switch label={t('enableCapability')} checked={enabled} disabled={locked} onChange={setEnabled} /></div>
       {importing ? <p role="status" className={css.help}>{t('importingSkill')}</p> : null}
-      {error ? <p role="alert" className={css.error}>{t('skillError')}</p> : null}
+      {error || saveError ? <p role="alert" className={css.error}>{error ? t('skillError') : saveError}</p> : null}
     </div>
   </Modal>
 }

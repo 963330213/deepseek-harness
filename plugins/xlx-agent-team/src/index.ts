@@ -8,14 +8,14 @@ import type {} from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { MEMBER_ID_PATTERN } from './types.ts'
 import type { TeamSettings } from './types.ts'
-import { capabilitiesSchema } from './capabilities.ts'
-import { createMemberRuntime } from './member-runtime.ts'
+import { capabilitiesSchema, skillBundlesSchema, type MemberSkill } from './capabilities.ts'
+import { createMemberRuntime, installPublicSkills, validatePublicSkills } from './member-runtime.ts'
 import { installDatabaseCatalog } from './database-catalog.ts'
 
 /** Cordis entry identity and settings namespace. */
 export const name = 'xlx-agent-team'
 /** Existing services own child execution, task persistence, and model resolution. */
-export const inject = ['tools', 'systemPrompt', 'subagents', 'agentTeams', 'llm', 'storageDomain']
+export const inject = ['tools', 'systemPrompt', 'subagents', 'agentTeams', 'llm', 'storageDomain', 'skills']
 
 type TeamCatalog = readonly { id: string; name: string; enabled: boolean }[]
 type SessionTeamGrants = (id: SessionId) => ReadonlySet<string> | null
@@ -38,6 +38,8 @@ export interface Config {
   enabled: Volatile<boolean>
   /** Validated user-owned roster. */
   members: Volatile<TeamSettings['members']>
+  /** Bundles mounted for all agents in the profile. */
+  publicSkills: Volatile<MemberSkill[]>
 }
 
 const memberSchema = z.intersect([
@@ -57,6 +59,7 @@ const memberSchema = z.intersect([
 export const Config = z.object({
   enabled: z.boolean().default(true).volatile(),
   members: z.dict(memberSchema, z.string().pattern(MEMBER_ID_PATTERN)).default({}).volatile(),
+  publicSkills: skillBundlesSchema.volatile(),
 })
 
 /**
@@ -66,8 +69,16 @@ export const Config = z.object({
  * @returns After admission storage and root tools are ready.
  */
 export const apply = async (ctx: Context, config: Config): Promise<void> => {
+  const owner = ctx.fiber
+  ctx.on('internal/config', (fiber, next) => {
+    const raw: unknown = next()
+    if (fiber === owner) validatePublicSkills(z.resolve(raw, Config, {})[0].publicSkills.get())
+    return raw
+  })
+  validatePublicSkills(config.publicSkills.get())
+  const publicSkillsReady = await installPublicSkills(ctx, config.publicSkills)
   const runtime = await createMemberRuntime(ctx)
-  installDatabaseCatalog(ctx, () => config.members.get())
+  installDatabaseCatalog(ctx, () => config.members.get(), publicSkillsReady)
   const configuredMembers = () => Object.entries(config.members.get()).map(([id, member]) => ({ id, ...member }))
   let grants: SessionTeamGrants = () => null
   const denied = new Set<string>()

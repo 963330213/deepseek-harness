@@ -43,12 +43,30 @@ const descriptor: InvocationDescriptor = {
   result: { mode: 'strict', typeSymbol: 'CatalogResult', create: () => resultSchema },
 }
 
+const publicSkillSchema = z.array(z.object({
+  name: z.string(), description: z.string(), provider: z.string(), modelInvocable: z.boolean(),
+}))
+
+/** Public skill metadata safe to show in the owner's settings. */
+export type PublicSkill = z.infer<typeof publicSkillSchema>[number]
+
+const skillDescriptor: InvocationDescriptor = {
+  id: 'dsh-xlx-agent-team#xlxTeamCatalog/publicSkills',
+  service: 'xlxTeamCatalog', namespace: 'xlxTeamCatalog', method: 'publicSkills',
+  invocation: { kind: 'direct' }, parameters: [],
+  cancellation: { parameter: 'signal' },
+  result: { mode: 'strict', typeSymbol: 'PublicSkill[]', create: () => publicSkillSchema },
+}
+
 /** Use the same strict descriptor on the host and browser. */
-export const catalogRemote: TypertRemoteContribution = { package: 'dsh-xlx-agent-team', descriptors: [descriptor] }
+export const catalogRemote: TypertRemoteContribution = { package: 'dsh-xlx-agent-team', descriptors: [descriptor, skillDescriptor] }
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespaceMap {
     /** Owner-only read access to saved member database metadata. */
-    xlxTeamCatalog: { read: (request: CatalogRequest, signal?: AbortSignal) => Promise<RemoteResult<CatalogResult>> }
+    xlxTeamCatalog: {
+      read: (request: CatalogRequest, signal?: AbortSignal) => Promise<RemoteResult<CatalogResult>>
+      publicSkills: (signal?: AbortSignal) => Promise<RemoteResult<PublicSkill[]>>
+    }
   }
 }

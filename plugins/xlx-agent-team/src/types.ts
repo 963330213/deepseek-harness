@@ -1,5 +1,5 @@
 /** Persisted member configuration shared by the Host and settings editor. */
-import { validateCapabilities, type MemberCapabilities } from './capabilities.ts'
+import { validateCapabilities, type MemberCapabilities, type MemberSkill } from './capabilities.ts'
 
 /** A reusable teammate definition. Running children retain their accepted configuration. */
 export interface TeamMember {
@@ -25,6 +25,8 @@ export interface TeamSettings {
   enabled: boolean
   /** User-owned member definitions, in display order. */
   members: Record<string, Omit<TeamMember, 'id'>>
+  /** ZIP bundles mounted in the profile-wide skill registry. */
+  publicSkills?: MemberSkill[]
 }
 
 /** Ordered member rows used by the settings editor. */

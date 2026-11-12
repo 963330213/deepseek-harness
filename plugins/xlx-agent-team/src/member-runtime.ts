@@ -3,14 +3,14 @@ import { randomUUID } from 'node:crypto'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Fiber, Volatile } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain'
 import * as McpClient from '@deepseek-ai/dsh-mcp-client'
 import * as SkillFilesystem from '@deepseek-ai/dsh-skill-filesystem'
 import { z } from 'zod'
-import { parseCapabilities, parseStringMap, validateCapabilities, type MemberCapabilities } from './capabilities.ts'
+import { parseCapabilities, parseStringMap, validateCapabilities, type MemberCapabilities, type MemberSkill } from './capabilities.ts'
 import { readSkillHeader } from './skill-bundle.ts'
 import { installDatabaseTools, prepareRead } from './database.ts'
 import { MEMBER_ID_PATTERN } from './types.ts'
@@ -35,12 +35,14 @@ interface MemberRuntime {
 }
 
 /**
- * Install accepted additions into a single member context, with independent dependency ownership.
- * @param ctx - Child scope; its disposal closes transports and drains database work.
- * @param config - Immutable accepted snapshot without resolved secrets.
+ * Materialize skill bundles in the registry layer owned by the calling context.
+ * @param ctx - Profile or member context that owns the temporary directory.
+ * @param providerName - Skill provider name within that layer.
+ * @param bundles - Saved ZIP contents and enablement.
+ * @returns After enabled bundles have been mounted.
  */
-const applyMember = async (ctx: Context, config: MemberCapabilities): Promise<void> => {
-  const skills = config.skills.filter(item => item.enabled)
+const mountSkillBundles = async (ctx: Context, providerName: string, bundles: readonly MemberSkill[]): Promise<void> => {
+  const skills = bundles.filter(item => item.enabled)
   if (skills.length) {
     const directory = await mkdtemp(join(tmpdir(), 'dsh-xlx-team-'))
     ctx.effect(() => () => rm(directory, { recursive: true, force: true }), 'xlx-team: temporary skill resources')
@@ -53,8 +55,62 @@ const applyMember = async (ctx: Context, config: MemberCapabilities): Promise<vo
         await writeFile(path, Buffer.from(bytes, 'base64'), { flag: 'wx', mode: 0o600 })
       }
     }
-    await ctx.plugin(SkillFilesystem, { providerName: 'xlx-team', includeDefaultRoots: false, customSkillDirs: [directory], watch: false })
+    await ctx.plugin(SkillFilesystem, { providerName, includeDefaultRoots: false, customSkillDirs: [directory], watch: false })
   }
+}
+
+/**
+ * Reject public bundles that cannot be materialized before settings are persisted.
+ * @param bundles - Complete public bundle configuration.
+ */
+export const validatePublicSkills = (bundles: readonly MemberSkill[]): void => {
+  validateCapabilities({ mcp: [], skills: [...bundles], databases: [] })
+  for (const skill of bundles) {
+    const header = readSkillHeader(Buffer.from(skill.files['SKILL.md']!, 'base64'))
+    if (header.name !== skill.name || header.description !== skill.description) throw new Error('Skill frontmatter does not match its saved definition')
+  }
+}
+
+/**
+ * Keep the unscoped provider in sync with the saved public bundles.
+ * @param ctx - Team plugin context owning the global provider.
+ * @param bundles - Live reference to the validated public bundles.
+ * @returns A fence for inventory reads after a settings write.
+ */
+export const installPublicSkills = async (ctx: Context, bundles: Volatile<MemberSkill[]>): Promise<() => Promise<void>> => {
+  let mounted: Fiber | undefined
+  let stopped = false
+  const provider = { name: 'xlx-team-public-skills', inject: ['skills'], apply: (skillCtx: Context, skills: readonly MemberSkill[]) => mountSkillBundles(skillCtx, 'xlx-team-public', skills) }
+  const replace = async () => {
+    if (stopped) return
+    const snapshot = bundles.get()
+    await mounted?.dispose()
+    mounted = undefined
+    if (stopped || !snapshot.some(skill => skill.enabled)) return
+    const next = ctx.plugin(provider, snapshot)
+    try {
+      await next
+      mounted = next
+    } catch (error) {
+      await next.dispose()
+      throw error
+    }
+  }
+  await replace()
+  let ready = Promise.resolve()
+  let tail = ready
+  const owner = ctx.fiber
+  ctx.on('internal/plugin', fiber => { if (fiber === owner && fiber.uid === null) stopped = true }, { global: true })
+  ctx.on('loader/volatile-update', paths => {
+    if (!paths.some(path => path[0] === 'publicSkills')) return
+    ready = tail.then(replace)
+    tail = ready.catch(error => ctx.logger.error('Could not reload shared skill bundles', error))
+  })
+  return () => ready
+}
+
+const applyMember = async (ctx: Context, config: MemberCapabilities): Promise<void> => {
+  await mountSkillBundles(ctx, 'xlx-team', config.skills)
   for (const server of config.mcp.filter(item => item.enabled)) {
     await ctx.plugin(McpClient, {
       serverName: server.name,

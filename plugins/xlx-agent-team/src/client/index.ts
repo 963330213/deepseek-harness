@@ -8,6 +8,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
 import { TeamPage } from './page.tsx'
 import { TeamPanel, TeamPanelIcon } from './panel.tsx'
+import { ResourcesPanel, SkillsPanelIcon } from './resources-panel.tsx'
 import { createTeamPage } from './controller.ts'
 import { en, zh, type TeamLocaleKey } from './locales.ts'
 import type { TeamSettings } from '../types.ts'
@@ -21,10 +22,11 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Required browser services. */
-export const inject = ['slots', 'locale', 'configForms', 'remote', 'remote.session']
+export const inject = ['slots', 'locale', 'configForms', 'remote', 'remote.session', 'remote.mcpManager']
 
 /** Sidebar selection and its main-panel registration share this identity. */
 const PANEL_ID = 'xlx-agent-team' as MainPanelId
+const RESOURCES_PANEL_ID = 'xlx-team-skills' as MainPanelId
 
 /**
  * Register the page only while its Host configuration is available to this user.
@@ -46,6 +48,13 @@ const registerPage = (ctx: Context): void => {
         label: () => ctx.locale.bind('settings.xlxAgentTeam')('title'),
         locale: 'settings.xlxAgentTeam',
       }, TeamPanelIcon))
+      yield ctx.slots.register({
+        name: 'main', key: RESOURCES_PANEL_ID, locale: 'settings.xlxAgentTeam', inject: () => page.face,
+      }, ResourcesPanel)
+      yield ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
+        name: 'sidebar.panellist', id: RESOURCES_PANEL_ID, order: 7,
+        label: () => ctx.locale.bind('settings.xlxAgentTeam')('resourcesPanel'), locale: 'settings.xlxAgentTeam',
+      }, SkillsPanelIcon))
       yield ctx.slots.inject('plugins.item', () => ctx.slots.register({
         name: 'plugins.item', id: 'xlx-agent-team', order: 11,
         label: () => ctx.locale.bind('settings.xlxAgentTeam')('title'),

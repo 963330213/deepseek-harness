@@ -70,6 +70,11 @@ const identifier = () => z.string().pattern(/^[a-z][a-z0-9-]{0,31}$/).required()
 const text = () => z.string().pattern(/\S/).required()
 const sqlIdentifier = () => z.string().pattern(MYSQL_IDENTIFIER)
 
+/** ZIP bundles shared by the whole profile or owned by one member. */
+export const skillBundlesSchema = z.array(z.object({
+  name: identifier(), description: text(), enabled: z.boolean().default(true), files: z.dict(String).required(),
+})).default([])
+
 /** Serializable schema used by both profile writes and snapshot restoration. */
 export const capabilitiesSchema: z<MemberCapabilities> = z.object({
   mcp: z.array(z.object({
@@ -80,9 +85,7 @@ export const capabilitiesSchema: z<MemberCapabilities> = z.object({
     url: z.string().default(''), headers: z.string().default('{}'),
     timeoutMs: z.number().step(1).min(1000).max(300000).default(60000),
   })).default([]),
-  skills: z.array(z.object({
-    name: identifier(), description: text(), enabled: z.boolean().default(true), files: z.dict(String).required(),
-  })).default([]),
+  skills: skillBundlesSchema,
   databases: z.array(z.object({
     id: identifier(), name: text(), enabled: z.boolean().default(true), host: text(),
     port: z.number().step(1).min(1).max(65535).default(3306), database: sqlIdentifier().required(),

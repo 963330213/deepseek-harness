@@ -1,6 +1,14 @@
 /** Locale-owned settings copy. */
 export const zh = {
   title: '智能体团队', description: '自定义成员的职责和模型，由主智能体自动分派任务并汇总结果',
+  resourcesPanel: '技能/MCP', mcpPanel: 'MCP', skillPanel: '技能', resourceSearch: '搜索名称或智能体', resourceBinding: '绑定智能体',
+  allAgents: '公共 · 全部智能体', allBindings: '全部绑定', publicBinding: '公共', privateBinding: '成员专属',
+  addPublicMcp: '添加公共 MCP', addPublicSkill: '添加公共技能', resourcesEmpty: '没有匹配的资源',
+  resourceLoadFailed: '公共资源列表加载失败', connected: '已连接', connecting: '正在连接',
+  connectionFailed: '连接未就绪', managedElsewhere: '由其他插件管理', shadowedSkill: '被同名技能覆盖',
+  manualSkill: '仅手动加载', deleteResource: '删除', disableCapability: '禁用',
+  removePublicDescription: '删除后，智能体将无法加载这项公共资源',
+  removeMemberResourceDescription: '删除后，该成员的新委派任务将无法加载这项资源',
   enabled: '启用智能体团队', add: '新增智能体', edit: '编辑智能体', remove: '删除智能体',
   empty: '添加团队成员，主智能体会根据职责分派任务', name: '名称', id: '成员标识',
   idHint: '小写字母开头，可包含数字和短横线，最多 32 个字符',
@@ -59,6 +67,14 @@ export type TeamLocaleKey = keyof typeof zh
 /** English is the fallback for locales without a dedicated dictionary. */
 export const en: Record<TeamLocaleKey, string> = {
   title: 'Agent team', description: 'Configure member responsibilities and models for automatic delegation and integrated results',
+  resourcesPanel: 'Skills/MCP', mcpPanel: 'MCP', skillPanel: 'Skills', resourceSearch: 'Search by name or agent', resourceBinding: 'Agent binding',
+  allAgents: 'Shared · All agents', allBindings: 'All bindings', publicBinding: 'Shared', privateBinding: 'Member only',
+  addPublicMcp: 'Add shared MCP', addPublicSkill: 'Add shared skill', resourcesEmpty: 'No matching resources.',
+  resourceLoadFailed: 'Could not load shared resources.', connected: 'Connected', connecting: 'Connecting',
+  connectionFailed: 'Connection unavailable', managedElsewhere: 'Managed by another plugin', shadowedSkill: 'Shadowed by another skill',
+  manualSkill: 'Manual loading only', deleteResource: 'Delete', disableCapability: 'Disable',
+  removePublicDescription: 'Agents will no longer be able to load this shared resource.',
+  removeMemberResourceDescription: 'New tasks delegated to this member will no longer load this resource.',
   enabled: 'Enable agent team', add: 'Add agent', edit: 'Edit agent', remove: 'Delete agent',
   empty: 'Add team members so the lead can assign work by responsibility', name: 'Name', id: 'Member id',
   idHint: 'Start with a lower-case letter. Use letters, digits and hyphens, up to 32 characters.',

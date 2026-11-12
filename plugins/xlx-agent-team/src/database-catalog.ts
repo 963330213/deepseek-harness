@@ -5,7 +5,7 @@ import { bindTypertRemote } from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-typert-registry'
 import mysql, { type RowDataPacket } from 'mysql2/promise'
 import { MYSQL_IDENTIFIER, type MemberDatabase } from './capabilities.ts'
-import { catalogRemote, databaseTarget, type CatalogRequest, type CatalogResult } from './database-catalog-contract.ts'
+import { catalogRemote, databaseTarget, type CatalogRequest, type CatalogResult, type PublicSkill } from './database-catalog-contract.ts'
 
 const PAGE_SIZE = 50
 type CatalogConnection = Parameters<typeof databaseTarget>[0] & Pick<MemberDatabase, 'id' | 'timeoutMs'>
@@ -15,8 +15,21 @@ type CatalogMembers = Readonly<Record<string, { readonly capabilities?: { readon
 class TeamCatalog extends Service {
   readonly typertRemote = bindTypertRemote(this, 'xlxTeamCatalog')
 
-  constructor(ctx: Context, private readonly members: () => CatalogMembers) {
+  constructor(ctx: Context, private readonly members: () => CatalogMembers, private readonly publicSkillsReady: () => Promise<void>) {
     super(ctx, 'xlxTeamCatalog')
+  }
+
+  /**
+   * Read the unscoped skill registry without invoking a skill.
+   * @param signal - Cancels discovery when the panel closes.
+   * @returns Global skill metadata without local paths or instruction bodies.
+   */
+  async publicSkills(signal: AbortSignal): Promise<PublicSkill[]> {
+    if (this.ctx.invocation?.peer.principal.kind !== 'owner') throw new Error('Public skill settings require the owner')
+    await this.publicSkillsReady()
+    return (await this.ctx.skills.list({ signal })).map(({ name, description, provider, invocation }) => ({
+      name, description, provider, modelInvocable: invocation.modelInvocable,
+    }))
   }
 
   /**
@@ -75,10 +88,11 @@ class TeamCatalog extends Service {
  * Register metadata discovery when the profile provides the Remote registry.
  * @param ctx - Owning team plugin.
  * @param members - Live saved roster getter.
+ * @param publicSkillsReady - Settles when the saved public bundles are mounted.
  */
-export const installDatabaseCatalog = (ctx: Context, members: () => CatalogMembers): void => {
-  ctx.inject(['typert', 'credentials'], catalogCtx => {
-    new TeamCatalog(catalogCtx, members)
+export const installDatabaseCatalog = (ctx: Context, members: () => CatalogMembers, publicSkillsReady: () => Promise<void>): void => {
+  ctx.inject(['typert', 'credentials', 'skills'], catalogCtx => {
+    new TeamCatalog(catalogCtx, members, publicSkillsReady)
     catalogCtx.typert.register({ ...catalogRemote, face: 'host', invocations: catalogRemote.descriptors, schemas: [], model: { services: [], events: [], objects: [] } })
   })
 }
