@@ -10,7 +10,7 @@
   },
   "engines": {
     "node": ">=24.9",
-    "dsh": "0.2.2-rc.2"
+    "dsh": "0.2.2-rc.3"
   },
   "dsh": {
     "bundle": {
@@ -24,6 +24,7 @@
     "*.js",
     "cordis.patch.yml",
     "README.md",
+    "README.zh.md",
     "examples"
   ],
   "scripts": {

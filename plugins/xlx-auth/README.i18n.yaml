@@ -1,0 +1,22 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write plugins/xlx-auth/README.md
+/dsh-project-account-access:
+  en: 51c3f572ab819af1
+  zh: 715a0a6aff8c56de
+/dsh-project-account-access/install-and-configure:
+  en: d97d0964097f44ca
+  zh: 14a9a9c2476a901b
+/dsh-project-account-access/oauth-authorization:
+  en: 53ba539cc5a087e9
+  zh: 40baf440dc27f554
+/dsh-project-account-access/users-and-roles:
+  en: ee888ab18429deb8
+  zh: 06fba00ff9a42023
+/dsh-project-account-access/current-limitations:
+  en: 6a2c22aa71ceeea0
+  zh: b489da64179ca096
+/dsh-project-account-access/verify:
+  en: 72e4a37186dbf713
+  zh: 4f3a793be2d2b957

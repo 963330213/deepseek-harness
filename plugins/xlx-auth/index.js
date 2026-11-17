@@ -58,7 +58,7 @@ export async function apply(ctx, options) {
     acceptsOAuthLogin: (audience, requestId) => oauth?.acceptsLogin(audience, requestId) ?? false,
     teamMembers: () => teamCatalog?.() ?? [],
   })
-  ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path: '/_xlx', handler: http.handle }), 'xlx-auth: account routes')
+  ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path: '/_xlx', auth: 'anonymous', handler: http.handle }), 'xlx-auth: account routes')
   ctx.on('session/created', session => {
     store.recordSession(session.header)
     ctx.remoteAccess.invalidate()

@@ -49,7 +49,7 @@ export async function installOAuth(ctx, accounts, initialResource) {
     ctx.logger.error('xlx-auth: could not complete the MCP configuration request')
   })
   ctx.effect(() => () => http.close(), 'xlx-auth: settings request lifetimes')
-  ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: SETTINGS_PATH, handler: http.handle }), 'xlx-auth: settings')
+  ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: SETTINGS_PATH, auth: 'anonymous', handler: http.handle }), 'xlx-auth: settings')
   for (const [path, method] of [
     [MCP_METADATA_PATH, 'metadata'],
     ['/mcp', 'handle'],
@@ -58,6 +58,7 @@ export async function installOAuth(ctx, accounts, initialResource) {
     ctx.effect(() => ctx.webServer.register({
       kind: 'exact',
       path,
+      auth: 'anonymous',
       handler(req, res) {
         const active = settings.current()
         if (active) return active[method](req, res)
